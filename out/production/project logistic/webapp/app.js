@@ -1,0 +1,3996 @@
+
+/* ============================================================
+   LOEGIS
+============================================================ */
+
+
+/* ============================================================
+   API
+============================================================ */
+
+const API = {
+    LOAD: "/api/load",
+    TRAFFIC: "/api/setTrafficMode",
+
+    SET_START: "/api/setDepot",
+    SET_CAMP: "/api/setCamp",
+    SET_RESCUE: "/api/addRescuePoint",
+    CLEAR_RESCUE: "/api/clearRescueRequests",
+
+    ADD_FLOOD: "/api/addFloodZone",
+    ADD_FLOODS_BATCH: "/api/addFloodZonesBatch",
+    CLEAR_FLOOD: "/api/clearFloodZones",
+
+    PREDICT_FLOOD: "/api/predictFloodRisk",
+    APPLY_AI_RISK: "/api/applyAiFloodRisk",
+    CLEAR_AI_RISK: "/api/clearAiFloodRisk",
+
+    RUN_TRANSPORT: "/api/runRoute",
+    RUN_RESCUE: "/api/runRescueMission",
+    RUN_MULTI_RESCUE: "/api/runMultiVehicleRescue",
+
+    STATE: "/api/state",
+    RESET: "/api/reset"
+};
+
+
+/* ============================================================
+   DOM
+============================================================ */
+
+const app =
+    document.querySelector(".app");
+
+const sidebarToggle =
+    document.getElementById("sidebarToggle");
+
+const syncBtn =
+    document.getElementById("syncBtn");
+
+const languageBtn =
+    document.getElementById("languageBtn");
+
+const clearAllBtn =
+    document.getElementById("clearAllBtn");
+
+const homePageBtn = document.getElementById("homePageBtn");
+const aiPageBtn = document.getElementById("aiPageBtn");
+const fieldPageBtn = document.getElementById("fieldPageBtn");
+const appPages = [...document.querySelectorAll(".app-page")];
+const appNavButtons = [...document.querySelectorAll(".app-nav-btn")];
+const routePageTitle = document.getElementById("routePageTitle");
+const routePageDescription = document.getElementById("routePageDescription");
+let currentAppPage = "homePage";
+
+
+const mapFilePath =
+    document.getElementById("mapFilePath");
+
+const loadMapBtn =
+    document.getElementById("loadMapBtn");
+
+
+const transportModeBtn =
+    document.getElementById("transportModeBtn");
+
+const rescueModeBtn =
+    document.getElementById("rescueModeBtn");
+
+
+const selectStartBtn =
+    document.getElementById("selectStartBtn");
+
+const selectTargetBtn =
+    document.getElementById("selectTargetBtn");
+
+
+const startNodeText =
+    document.getElementById("startNodeText");
+
+const targetNodeText =
+    document.getElementById("targetNodeText");
+
+
+const clickHint =
+    document.getElementById("clickHint");
+
+
+const findRouteBtn =
+    document.getElementById("findRouteBtn");
+
+
+const mapStatus =
+    document.getElementById("mapStatus");
+
+
+const routeResult =
+    document.getElementById("routeResult");
+
+const routeDistance =
+    document.getElementById("routeDistance");
+const routePreference = document.getElementById("routePreference");
+const routeAverageRisk = document.getElementById("routeAverageRisk");
+const routeMaxRisk = document.getElementById("routeMaxRisk");
+const routeExplanation = document.getElementById("routeExplanation");
+
+const rescuePlannerBox = document.getElementById("rescuePlannerBox");
+const rescuePeople = document.getElementById("rescuePeople");
+const rescuePriority = document.getElementById("rescuePriority");
+const rescueNote = document.getElementById("rescueNote");
+const rescueFleetSize = document.getElementById("rescueFleetSize");
+const rescueVehicleCapacity = document.getElementById("rescueVehicleCapacity");
+const rescueQueueInfo = document.getElementById("rescueQueueInfo");
+const runMultiRescueBtn = document.getElementById("runMultiRescueBtn");
+const clearRescueRequestsBtn = document.getElementById("clearRescueRequestsBtn");
+const rescuePlanResult = document.getElementById("rescuePlanResult");
+const rescuePlanSummary = document.getElementById("rescuePlanSummary");
+const rescueAssignmentList = document.getElementById("rescueAssignmentList");
+const rescueResultToggle = document.getElementById("rescueResultToggle");
+const rescueResultClose = document.getElementById("rescueResultClose");
+const rescuePointDialog = document.getElementById("rescuePointDialog");
+const rescuePointNodeText = document.getElementById("rescuePointNodeText");
+const rescuePointPeople = document.getElementById("rescuePointPeople");
+const rescuePointPriority = document.getElementById("rescuePointPriority");
+const rescuePointConfirm = document.getElementById("rescuePointConfirm");
+const rescuePointCancel = document.getElementById("rescuePointCancel");
+const rescuePointCancelX = document.getElementById("rescuePointCancelX");
+const rescuePeopleMinus = document.getElementById("rescuePeopleMinus");
+const rescuePeoplePlus = document.getElementById("rescuePeoplePlus");
+const smartRoutingBox = document.getElementById("smartRoutingBox");
+const targetLocationLabel = document.getElementById("targetLocationLabel");
+const targetLocationIcon = document.getElementById("targetLocationIcon");
+let rescueFleetManuallyEdited = false;
+
+const fieldNote = document.getElementById("fieldNote");
+
+
+const floodLevel =
+    document.getElementById("floodLevel");
+
+const floodRadius =
+    document.getElementById("floodRadius");
+
+
+const selectFloodBtn =
+    document.getElementById("selectFloodBtn");
+
+const addFloodBtn =
+    document.getElementById("addFloodBtn");
+
+const clearFloodBtn =
+    document.getElementById("clearFloodBtn");
+
+
+const floodSelectionInfo =
+    document.getElementById("floodSelectionInfo");
+
+
+const toast =
+    document.getElementById("toast");
+
+
+/* ============================================================
+   STATE
+============================================================ */
+
+let appState = null;
+
+let travelMode =
+    "transport";
+
+let currentLanguage =
+    "th";
+
+let clickMode =
+    null;
+
+let selectedStartNode =
+    null;
+
+let selectedTargetNode =
+    null;
+
+let selectedFloodLatLng =
+    null;
+
+
+/* ============================================================
+   PAGE NAVIGATION
+============================================================ */
+
+function updateRoutePageHeader() {
+    if (!routePageTitle || !routePageDescription) return;
+    if (travelMode === "rescue") {
+        routePageTitle.textContent = t("rescue");
+        routePageDescription.textContent = t("rescueDesc");
+    } else {
+        routePageTitle.textContent = t("transport");
+        routePageDescription.textContent = t("transportDesc");
+    }
+}
+
+function openAppPage(pageId, activeButton = null) {
+    currentAppPage = pageId;
+    appPages.forEach(page => page.classList.toggle("active-page", page.id === pageId));
+    appNavButtons.forEach(button => button.classList.toggle("page-active", button === activeButton));
+
+    updateRoutePageHeader();
+
+    if (window.innerWidth <= 720 && !app.classList.contains("sidebar-collapsed")) {
+        app.classList.add("sidebar-collapsed");
+        document.body.classList.add("sidebar-is-closed");
+    }
+
+    setTimeout(() => map?.invalidateSize?.(), 80);
+}
+
+homePageBtn?.addEventListener("click", () => openAppPage("homePage", homePageBtn));
+aiPageBtn?.addEventListener("click", () => openAppPage("aiPage", aiPageBtn));
+fieldPageBtn?.addEventListener("click", () => openAppPage("fieldPage", fieldPageBtn));
+
+/* ============================================================
+   LANGUAGE
+============================================================ */
+
+const translations = {
+    th: {
+        openMenu: "เปิดเมนู",
+        changeLanguage: "เปลี่ยนภาษา",
+        sync: "ซิงค์สถานการณ์ปัจจุบัน",
+        clearAll: "🧹 เคลียร์ทั้งหมด",
+        routeSection: "การหาเส้นทาง",
+        floodSection: "รายงานภาคสนาม",
+        mapFile: "ไฟล์แผนที่",
+        loadMap: "โหลดแผนที่",
+        travelType: "โหมดการทำงาน",
+        transport: "ขนส่ง",
+        transportDesc: "วางแผนเส้นทางขนส่ง",
+        rescue: "กู้ภัย",
+        rescueDesc: "จัดรถกู้ภัยหลายจุด",
+        selectLocation: "เลือกตำแหน่งบนแผนที่",
+        start: "จุดเริ่มต้น",
+        destination: "จุดหมาย",
+        addRescueTarget: "เพิ่มผู้ประสบภัย",
+        notSelected: "ยังไม่ได้เลือก",
+        clickHint: "เลือกจุดเริ่มต้นหรือจุดหมาย แล้วคลิกตำแหน่งบนแผนที่",
+        selectStart: "คลิกบนแผนที่เพื่อกำหนดจุดเริ่มต้น",
+        selectTarget: "คลิกบนแผนที่เพื่อกำหนดจุดหมาย",
+        findRoute: "หาเส้นทางที่ดีที่สุด",
+        findingRoute: "กำลังคำนวณ...",
+        result: "ผลการคำนวณ",
+        totalDistance: "ระยะทางรวม",
+        averageRisk: "ความเสี่ยงเฉลี่ย",
+        maxRisk: "ความเสี่ยงสูงสุด",
+        routePreference: "รูปแบบการตัดสินใจ",
+        fastest: "⚡ เร็วที่สุด",
+        balanced: "⚖️ สมดุล",
+        safest: "🛡️ ปลอดภัยที่สุด",
+        routingHint: "ระบบคำนวณเส้นทางจากระยะทาง เวลา และความเสี่ยงน้ำท่วม",
+        multiRescue: "กู้ภัยหลายจุด",
+        advancedSettings: "ตั้งค่าขั้นสูง",
+        fleetSize: "จำนวนรถ",
+        vehicleCapacity: "ความจุ/คัน",
+        clearRescuePoints: "ล้างจุดผู้ประสบภัย",
+        addRescuePoint: "เพิ่มจุดผู้ประสบภัย",
+        selectedPoint: "จุดที่เลือก",
+        rescuePeopleCount: "จำนวนผู้ประสบภัย",
+        decreasePeople: "ลดจำนวนคน",
+        increasePeople: "เพิ่มจำนวนคน",
+        priority: "ความเร่งด่วน",
+        priorityNormal: "ปกติ",
+        priorityHigh: "เร่งด่วน",
+        priorityCritical: "วิกฤต",
+        priorityLow: "ต่ำ",
+        cancel: "ยกเลิก",
+        addThisPoint: "เพิ่มจุดนี้",
+        rescueResult: "ผลกู้ภัย",
+        rescuePlan: "แผนกู้ภัย",
+        closeResult: "ปิดผลลัพธ์",
+        floodLevel: "ระดับน้ำท่วม",
+        shallow: "น้ำตื้น",
+        medium: "น้ำปานกลาง",
+        deep: "น้ำลึก",
+        radius: "รัศมีพื้นที่น้ำท่วม",
+        fieldInfo: "ใช้ข้อมูลภาคสนามยืนยันระดับน้ำจริงและปรับเส้นทางทับผลคาดการณ์จาก AI",
+        fieldNote: "หมายเหตุ",
+        fieldNotePlaceholder: "เช่น น้ำเพิ่มเร็ว มีรถติดค้าง",
+        selectFlood: "เลือกตำแหน่งน้ำท่วมบนแผนที่",
+        selectFloodHint: "คลิกบนแผนที่เพื่อเลือกศูนย์กลางพื้นที่น้ำท่วม",
+        notSelectedLocation: "ยังไม่ได้เลือกตำแหน่ง",
+        addFlood: "บันทึกรายงานภาคสนาม",
+        clearFlood: "ล้างรายงานภาคสนามทั้งหมด",
+        bestRoute: "เส้นทางที่ดีที่สุด",
+        floodedRoad: "ถนนน้ำท่วม",
+        aiPredictionTitle: "AI พื้นที่น้ำท่วมซ้ำซาก",
+        aiPredictionDesc: "ใช้โมเดล XGBoost ใหม่ที่เรียนรู้จากความสูงและความลาดชัน เพื่อประเมินโอกาสเกิดน้ำท่วมซ้ำซากและส่งค่าความเสี่ยงเข้าสู่ระบบหาเส้นทาง",
+        predictFlood: "🤖 วิเคราะห์น้ำท่วมซ้ำซาก",
+        clearPrediction: "🧹 เคลียร์ผลทำนาย",
+        notAnalyzed: "ยังไม่ได้วิเคราะห์",
+        riskVeryHigh: "สูงมาก ≥ 75%",
+        riskHigh: "สูง 50–74%",
+        riskMedium: "ปานกลาง 25–49%",
+        riskLow: "ต่ำ < 25%",
+        notLoaded: "ยังไม่โหลด",
+        ready: "พร้อมใช้งาน",
+        syncSuccess: "ซิงค์สถานการณ์ล่าสุดแล้ว",
+        syncFailed: "ไม่สามารถซิงค์สถานการณ์ได้",
+        mapLoaded: "โหลดแผนที่สำเร็จ",
+        mapFailed: "โหลดแผนที่ไม่สำเร็จ",
+        setStartSuccess: "กำหนดจุดเริ่มต้นแล้ว",
+        setTargetSuccess: "กำหนดจุดหมายแล้ว",
+        routeSuccess: "พบเส้นทางที่ดีที่สุดแล้ว",
+        routeFailed: "ไม่พบเส้นทางที่สามารถไปถึงจุดหมายได้",
+        mapRequired: "กรุณาโหลดแผนที่ก่อน",
+        selectBoth: "กรุณากำหนดจุดเริ่มต้นและจุดหมายก่อน",
+        samePoint: "จุดเริ่มต้นและจุดหมายต้องเป็นคนละจุด",
+        floodAdded: "บันทึกรายงานภาคสนามแล้ว",
+        floodCleared: "ล้างรายงานภาคสนามทั้งหมดแล้ว",
+        rescueNeedStart: "กรุณากำหนดจุดเริ่มต้นก่อน",
+        rescueNeedPoint: "กรุณาเพิ่มผู้ประสบภัยอย่างน้อย 1 จุด",
+        rescuePlanning: "กำลังวางแผน...",
+        rescuePlanFailed: "ไม่สามารถวางแผนกู้ภัยได้",
+        rescueCleared: "ล้างจุดผู้ประสบภัยแล้ว",
+        rescueAddFirst: "เพิ่มผู้ประสบภัยก่อน",
+        rescueEmptyHint: "กด “เพิ่มผู้ประสบภัย” แล้วเลือกบนแผนที่",
+        clearWorking: "⏳ กำลังเคลียร์...",
+        clearSuccess: "เคลียร์ข้อมูลทั้งหมดเรียบร้อย",
+        clearFailed: "เคลียร์ข้อมูลทั้งหมดไม่สำเร็จ",
+        aiAnalyzing: "⏳ กำลังวิเคราะห์...",
+        aiLoading: "กำลังโหลดผลจากโมเดล XGBoost...",
+        aiApplying: "กำลังนำผล AI ไปคำนวณความเสี่ยงของถนน...",
+        aiApplied: "AI ถูกนำไปใช้กับการหาเส้นทางแล้ว",
+        aiDisplayed: "แสดงพื้นที่เสี่ยงจาก AI เรียบร้อย",
+        aiDisplayedNoMap: "แสดงผล AI แล้ว — โหลดแผนที่เพื่อให้ AI มีผลกับการหาเส้นทาง",
+        aiLoadFailed: "โหลดผลการทำนายไม่สำเร็จ",
+        aiCleared: "เคลียร์ผล AI แล้ว",
+        peopleUnit: "คน",
+        pointUnit: "จุด",
+        vehicleUnit: "คัน",
+        tripUnit: "รอบ",
+        rescueTargetCountLatest: "{count} จุด (ล่าสุด Node {node})",
+        rescuePlanButton: "วางแผนกู้ภัย {count} จุด",
+        rescuePlanSuccess: "วางแผนสำเร็จ {count} คัน",
+        rescueQueueCount: "{count} จุด",
+        rescueQueuePeople: "รวม {count} คน",
+        rescueQueueRowPeople: "{count} คน",
+        rescueResultButton: "ผลกู้ภัย {count} จุด",
+        rescueSummaryUnserved: "{vehicles} คัน • ช่วยได้ {assigned}/{total} คน • รอ {unserved} คน",
+        rescueSummaryComplete: "{vehicles} คัน • {points} จุด • ช่วยครบ {total} คน",
+        rescueTripRoute: "รอบ {trip}: Start → {stops} → Start",
+        rescueAssignmentPeople: "{count} คน",
+        rescueAssignmentMeta: "{trips} รอบ • {points} จุด • {distance} km",
+        rescueMarkerPeople: "{count} คน",
+        aiRoutingActive: "AI Routing Active | ถนนได้รับผล {edges} เส้น",
+        aiRoutingDetail: "AI Routing Active | grid เสี่ยง {cells} ช่อง | ถนนได้รับผล {edges} เส้น | threshold ≥ {threshold}%",
+        aiRiskStatus: "แสดง {count} พื้นที่เสี่ยง | ความเสี่ยง {level}",
+        aiDisplayFailed: "แสดงผลการทำนายไม่สำเร็จ: {message}",
+        selectRescueTarget: "คลิกบนแผนที่เพื่อเพิ่มจุดผู้ประสบภัย",
+        rescuePointAdded: "เพิ่มจุดผู้ประสบภัยแล้ว",
+        pageHome: "ภาพรวม",
+        pageTransport: "ขนส่ง",
+        pageRescue: "กู้ภัย",
+        pageAI: "AI น้ำท่วมซ้ำซาก",
+        pageField: "รายงานภาคสนาม",
+        pageOverviewKicker: "เริ่มต้นใช้งาน",
+        pageOverviewTitle: "ภาพรวมระบบ",
+        pageOverviewDesc: "โหลดแผนที่และตรวจสอบสถานะก่อนเริ่มวางแผนเส้นทาง",
+        mapSetupHint: "โหลดเครือข่ายถนนสำหรับเริ่มใช้งาน",
+        syncHint: "ดึงสถานะล่าสุดจากระบบ",
+        clearAllSimple: "เคลียร์สถานการณ์",
+        clearAllHint: "เริ่มการจำลองใหม่ทั้งหมด",
+        workflowTitle: "ลำดับการใช้งาน",
+        workflowStep1: "โหลดแผนที่",
+        workflowStep2: "เปิด AI Risk หรือเพิ่ม Field Report ถ้ามี",
+        workflowStep3: "เลือกขนส่งหรือกู้ภัย แล้ววางแผนเส้นทาง",
+        aiPageHelp: "วิเคราะห์ความเสี่ยงและส่งค่าความเสี่ยงเข้า Road Network โดยอัตโนมัติ",
+        riskLegendTitle: "ระดับความเสี่ยง",
+        fieldPageKicker: "ข้อมูลภาคสนาม",
+        waterLegendTitle: "ระดับน้ำบนแผนที่",
+        rescueRouteTooltip: "{label} • {trips} รอบ • {people} คน",
+        routeLabel: "เส้นทาง {index}",
+        routeLegendLine: "เส้นทาง {index}",
+        transportRouteLabel: "เส้นทางขนส่ง",
+        directionArrow: "ทิศทางการเดินทาง",
+        rescueResultButtonLarge: "แผนกู้ภัย {count} เส้นทาง",
+        rescueResultTitleLarge: "สรุปแผนกู้ภัย",
+        rescueAssignmentHeader: "เส้นทาง {index}",
+        rescueAssignmentServes: "ช่วย {count} คน",
+        rescueAssignmentMetaLarge: "{trips} รอบ • {points} จุด • {distance} กม.",
+        rescuePanelLegend: "แตะเส้นทางบนแผนที่เพื่อดูรายละเอียด",
+        routeMapLabel: "เส้นทางนี้"
+    },
+    en: {
+        openMenu: "Open menu",
+        changeLanguage: "Change language",
+        sync: "Sync Current Situation",
+        clearAll: "🧹 Clear All",
+        routeSection: "Route Planning",
+        floodSection: "Field Report",
+        mapFile: "Map File",
+        loadMap: "Load Map",
+        travelType: "Mode",
+        transport: "Transport",
+        transportDesc: "Plan transport routes",
+        rescue: "Rescue",
+        rescueDesc: "Assign rescue vehicles to multiple points",
+        selectLocation: "Select Location on Map",
+        start: "Start",
+        destination: "Destination",
+        addRescueTarget: "Add Rescue Point",
+        notSelected: "Not selected",
+        clickHint: "Choose Start or Destination, then click the map",
+        selectStart: "Click the map to set the start point",
+        selectTarget: "Click the map to set the destination",
+        findRoute: "Find Best Route",
+        findingRoute: "Calculating...",
+        result: "Result",
+        totalDistance: "Total Distance",
+        averageRisk: "Average Risk",
+        maxRisk: "Maximum Risk",
+        routePreference: "Routing Preference",
+        fastest: "⚡ Fastest",
+        balanced: "⚖️ Balanced",
+        safest: "🛡️ Safest",
+        routingHint: "Routes are calculated from distance, travel time, and flood risk",
+        multiRescue: "Multi-Point Rescue",
+        advancedSettings: "Advanced Settings",
+        fleetSize: "Vehicles",
+        vehicleCapacity: "Capacity / vehicle",
+        clearRescuePoints: "Clear Rescue Points",
+        addRescuePoint: "Add Rescue Point",
+        selectedPoint: "Selected point",
+        rescuePeopleCount: "Number of People",
+        decreasePeople: "Decrease number of people",
+        increasePeople: "Increase number of people",
+        priority: "Priority",
+        priorityNormal: "Normal",
+        priorityHigh: "High",
+        priorityCritical: "Critical",
+        priorityLow: "Low",
+        cancel: "Cancel",
+        addThisPoint: "Add This Point",
+        rescueResult: "Rescue Result",
+        rescuePlan: "Rescue Plan",
+        closeResult: "Close result",
+        floodLevel: "Flood Level",
+        shallow: "Shallow",
+        medium: "Medium",
+        deep: "Deep",
+        radius: "Flood Radius",
+        fieldInfo: "Field data confirms actual water conditions and overrides AI predictions when routes are recalculated",
+        fieldNote: "Note",
+        fieldNotePlaceholder: "e.g. water rising quickly, vehicles stranded",
+        selectFlood: "Select Flood Location",
+        selectFloodHint: "Click the map to select the flood center",
+        notSelectedLocation: "No location selected",
+        addFlood: "Save Field Report",
+        clearFlood: "Clear Field Reports",
+        bestRoute: "Best Route",
+        floodedRoad: "Flooded Road",
+        aiPredictionTitle: "Recurrent Flood AI",
+        aiPredictionDesc: "Uses the new XGBoost model based on elevation and slope to estimate recurrent-flood probability and feed road risk into route planning",
+        predictFlood: "🤖 Analyze Recurrent Flood Risk",
+        clearPrediction: "🧹 Clear Prediction",
+        notAnalyzed: "Not analyzed yet",
+        riskVeryHigh: "Very high ≥ 75%",
+        riskHigh: "High 50–74%",
+        riskMedium: "Medium 25–49%",
+        riskLow: "Low < 25%",
+        notLoaded: "Not loaded",
+        ready: "Ready",
+        syncSuccess: "Current situation synchronized",
+        syncFailed: "Unable to synchronize",
+        mapLoaded: "Map loaded successfully",
+        mapFailed: "Unable to load map",
+        setStartSuccess: "Start point selected",
+        setTargetSuccess: "Destination selected",
+        routeSuccess: "Best route found",
+        routeFailed: "No route to the destination was found",
+        mapRequired: "Please load the map first",
+        selectBoth: "Please select both start and destination",
+        samePoint: "Start and destination must be different",
+        floodAdded: "Field report saved",
+        floodCleared: "All field reports cleared",
+        rescueNeedStart: "Please set the start point first",
+        rescueNeedPoint: "Please add at least one rescue point",
+        rescuePlanning: "Planning...",
+        rescuePlanFailed: "Unable to create a rescue plan",
+        rescueCleared: "Rescue points cleared",
+        rescueAddFirst: "Add a rescue point first",
+        rescueEmptyHint: "Press “Add Rescue Point” and select a location on the map",
+        clearWorking: "⏳ Clearing...",
+        clearSuccess: "All data cleared",
+        clearFailed: "Unable to clear all data",
+        aiAnalyzing: "⏳ Analyzing...",
+        aiLoading: "Loading XGBoost prediction results...",
+        aiApplying: "Applying AI risk to the road network...",
+        aiApplied: "AI risk is now included in route planning",
+        aiDisplayed: "AI flood-risk areas displayed",
+        aiDisplayedNoMap: "AI results displayed — load the map to apply them to route planning",
+        aiLoadFailed: "Unable to load prediction results",
+        aiCleared: "AI prediction cleared",
+        peopleUnit: "people",
+        pointUnit: "points",
+        vehicleUnit: "vehicles",
+        tripUnit: "trips",
+        rescueTargetCountLatest: "{count} points (latest: Node {node})",
+        rescuePlanButton: "Plan Rescue for {count} Points",
+        rescuePlanSuccess: "Plan created for {count} vehicles",
+        rescueQueueCount: "{count} points",
+        rescueQueuePeople: "{count} people total",
+        rescueQueueRowPeople: "{count} people",
+        rescueResultButton: "Rescue Result · {count} points",
+        rescueSummaryUnserved: "{vehicles} vehicles • {assigned}/{total} rescued • {unserved} waiting",
+        rescueSummaryComplete: "{vehicles} vehicles • {points} points • all {total} rescued",
+        rescueTripRoute: "Trip {trip}: Start → {stops} → Start",
+        rescueAssignmentPeople: "{count} people",
+        rescueAssignmentMeta: "{trips} trips • {points} stops • {distance} km",
+        rescueMarkerPeople: "{count} people",
+        aiRoutingActive: "AI Routing Active | {edges} road edges affected",
+        aiRoutingDetail: "AI Routing Active | {cells} risk cells | {edges} road edges affected | threshold ≥ {threshold}%",
+        aiRiskStatus: "Showing {count} risk areas | Risk {level}",
+        aiDisplayFailed: "Unable to display prediction: {message}",
+        selectRescueTarget: "Click the map to add a rescue point",
+        rescuePointAdded: "Rescue point added",
+        pageHome: "Overview",
+        pageTransport: "Transport",
+        pageRescue: "Rescue",
+        pageAI: "Recurrent Flood AI",
+        pageField: "Field Report",
+        pageOverviewKicker: "GET STARTED",
+        pageOverviewTitle: "System Overview",
+        pageOverviewDesc: "Load the road map and check system status before planning routes",
+        mapSetupHint: "Load the road network to begin",
+        syncHint: "Pull the latest situation from the system",
+        clearAllSimple: "Clear Situation",
+        clearAllHint: "Start a new simulation from scratch",
+        workflowTitle: "Recommended Workflow",
+        workflowStep1: "Load the map",
+        workflowStep2: "Apply AI Risk or add a Field Report when available",
+        workflowStep3: "Choose Transport or Rescue and plan the route",
+        aiPageHelp: "Analyze flood risk and apply it directly to the road network",
+        riskLegendTitle: "Risk Levels",
+        fieldPageKicker: "FIELD DATA",
+        waterLegendTitle: "Water Levels on Map",
+        rescueRouteTooltip: "{label} • {trips} trips • {people} people",
+        routeLabel: "Route {index}",
+        routeLegendLine: "Route {index}",
+        transportRouteLabel: "Transport Route",
+        directionArrow: "Travel direction",
+        rescueResultButtonLarge: "Rescue Plan · {count} routes",
+        rescueResultTitleLarge: "Rescue Plan Summary",
+        rescueAssignmentHeader: "Route {index}",
+        rescueAssignmentServes: "Rescues {count} people",
+        rescueAssignmentMetaLarge: "{trips} trips • {points} stops • {distance} km",
+        rescuePanelLegend: "Tap a route on the map to view details",
+        routeMapLabel: "This route"
+    }
+};
+
+
+function t(key) {
+    return translations[currentLanguage][key] || key;
+}
+
+function tf(key, vars = {}) {
+    return Object.entries(vars).reduce(
+        (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
+        t(key)
+    );
+}
+
+function setDynamicText(element, key, vars = {}) {
+    if (!element) return;
+    element.dataset.i18nDynamicKey = key;
+    element.dataset.i18nDynamicVars = JSON.stringify(vars);
+    element.textContent = tf(key, vars);
+}
+
+function priorityText(value) {
+    const keys = { NORMAL: "priorityNormal", HIGH: "priorityHigh", CRITICAL: "priorityCritical", LOW: "priorityLow" };
+    return t(keys[String(value || "NORMAL").toUpperCase()] || "priorityNormal");
+}
+
+function floodLevelText(value) {
+    const keys = { SHALLOW: "shallow", MEDIUM: "medium", DEEP: "deep" };
+    return t(keys[String(value || "MEDIUM").toUpperCase()] || "medium");
+}
+
+function getRouteDisplayName(index) {
+    return tf("routeLabel", { index: index + 1 });
+}
+
+function buildPathLatLngs(edgeIds, nodes, edges) {
+    const latlngs = [];
+    for (const id of edgeIds || []) {
+        const edge = edges.get(String(id));
+        if (!edge) continue;
+
+        const source = nodes.get(String(edge.sourceId));
+        const target = nodes.get(String(edge.targetId));
+        if (!source || !target) continue;
+
+        const sourceLatLng = [Number(source.lat), Number(source.lon)];
+        const targetLatLng = [Number(target.lat), Number(target.lon)];
+
+        if (!latlngs.length) {
+            latlngs.push(sourceLatLng, targetLatLng);
+            continue;
+        }
+
+        const last = latlngs[latlngs.length - 1];
+        if (Math.abs(last[0] - sourceLatLng[0]) < 1e-9 && Math.abs(last[1] - sourceLatLng[1]) < 1e-9) {
+            latlngs.push(targetLatLng);
+        } else if (Math.abs(last[0] - targetLatLng[0]) < 1e-9 && Math.abs(last[1] - targetLatLng[1]) < 1e-9) {
+            latlngs.push(sourceLatLng);
+        } else {
+            latlngs.push(sourceLatLng, targetLatLng);
+        }
+    }
+    return latlngs;
+}
+
+function createArrowIcon(angle, color = "#2563eb") {
+    return L.divIcon({
+        className: "route-arrow-icon-wrapper",
+        html: `<div class="route-arrow-icon" style="--arrow-color:${color}; transform: rotate(${angle}deg);">➜</div>`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+    });
+}
+
+function addRouteArrowMarkers(latlngs, color) {
+    if (!Array.isArray(latlngs) || latlngs.length < 2) return;
+
+    const placements = latlngs.length <= 3
+        ? [0]
+        : [Math.floor((latlngs.length - 2) * 0.33), Math.floor((latlngs.length - 2) * 0.66)];
+
+    const used = new Set();
+    placements.forEach(index => {
+        const i = Math.max(0, Math.min(latlngs.length - 2, index));
+        if (used.has(i)) return;
+        used.add(i);
+
+        const from = latlngs[i];
+        const to = latlngs[i + 1];
+        if (!from || !to) return;
+
+        const mid = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2];
+        const angle = Math.atan2(to[0] - from[0], to[1] - from[1]) * 180 / Math.PI;
+
+        L.marker(mid, {
+            icon: createArrowIcon(angle, color),
+            interactive: false,
+            keyboard: false,
+            zIndexOffset: 800
+        }).addTo(routeLayer);
+    });
+}
+
+function addRouteLabel(latlngs, label, color) {
+    if (!Array.isArray(latlngs) || !latlngs.length) return;
+    const midIndex = Math.floor(latlngs.length / 2);
+    const mid = latlngs[midIndex];
+    if (!mid) return;
+
+    L.marker(mid, {
+        icon: L.divIcon({
+            className: "route-label-wrapper",
+            html: `<div class="route-label" style="--route-label-color:${color};">${label}</div>`,
+            iconSize: [140, 28],
+            iconAnchor: [70, 14]
+        }),
+        interactive: false,
+        keyboard: false,
+        zIndexOffset: 850
+    }).addTo(routeLayer);
+}
+
+
+function applyLanguage() {
+
+    document.documentElement.lang =
+        currentLanguage === "th"
+            ? "th"
+            : "en";
+
+
+    document
+        .querySelectorAll(
+            "[data-i18n]"
+        )
+        .forEach(
+            element => {
+
+                const key =
+                    element.dataset.i18n;
+
+
+                if (
+                    translations[currentLanguage][key]
+                ) {
+
+                    element.textContent =
+                        translations[currentLanguage][key];
+
+                }
+
+            }
+        );
+
+
+    document.querySelectorAll("[data-i18n-placeholder]").forEach(element => {
+        const key = element.dataset.i18nPlaceholder;
+        if (translations[currentLanguage][key]) element.placeholder = t(key);
+    });
+
+    document.querySelectorAll("[data-i18n-title]").forEach(element => {
+        const key = element.dataset.i18nTitle;
+        if (translations[currentLanguage][key]) element.title = t(key);
+    });
+
+    document.querySelectorAll("[data-i18n-aria-label]").forEach(element => {
+        const key = element.dataset.i18nAriaLabel;
+        if (translations[currentLanguage][key]) element.setAttribute("aria-label", t(key));
+    });
+
+    document.querySelectorAll("[data-i18n-dynamic-key]").forEach(element => {
+        let vars = {};
+        try { vars = JSON.parse(element.dataset.i18nDynamicVars || "{}"); } catch (_) {}
+        element.textContent = tf(element.dataset.i18nDynamicKey, vars);
+    });
+
+    languageBtn.textContent = currentLanguage === "th" ? "EN" : "TH";
+
+    updateMapLoadedStatus();
+
+
+    if (!selectedStartNode) {
+
+        startNodeText.textContent =
+            t("notSelected");
+
+    }
+
+
+    if (!selectedTargetNode) {
+
+        targetNodeText.textContent =
+            t("notSelected");
+
+    }
+
+
+    if (!selectedFloodLatLng) {
+
+        floodSelectionInfo.textContent =
+            t("notSelectedLocation");
+
+    }
+
+
+    if (!clickMode) {
+        clickHint.textContent = t("clickHint");
+    } else if (clickMode === "start") {
+        clickHint.textContent = t("selectStart");
+    } else if (clickMode === "target") {
+        clickHint.textContent = travelMode === "rescue" ? t("selectRescueTarget") : t("selectTarget");
+    } else if (clickMode === "flood") {
+        clickHint.textContent = t("selectFloodHint");
+    }
+
+    // รีเฟรชข้อความที่เกิดจาก state ปัจจุบันให้เปลี่ยนภาษาทันที
+    updateTravelModeUI();
+    updateRoutePageHeader();
+    updateRescuePlannerUI(appState);
+    if (appState) renderState(appState);
+
+}
+
+
+languageBtn.addEventListener(
+    "click",
+    () => {
+
+        currentLanguage =
+            currentLanguage === "th"
+                ? "en"
+                : "th";
+
+
+        applyLanguage();
+
+    }
+);
+
+
+/* ============================================================
+   LEAFLET
+============================================================ */
+
+if (
+    typeof L ===
+    "undefined"
+) {
+
+    alert(
+        "Leaflet cannot be loaded."
+    );
+
+    throw new Error(
+        "Leaflet unavailable"
+    );
+
+}
+
+
+/* ============================================================
+   MAP
+============================================================ */
+
+const map =
+    L.map(
+        "map",
+        {
+            zoomControl:
+                false,
+
+            preferCanvas:
+                true
+        }
+    )
+        .setView(
+            [
+                7.0100,
+                100.4700
+            ],
+            13
+        );
+
+
+L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+        maxZoom:
+            20,
+
+        attribution:
+            "&copy; OpenStreetMap contributors"
+    }
+)
+    .addTo(map);
+
+
+/* ============================================================
+   ZOOM
+============================================================ */
+
+L.control
+    .zoom(
+        {
+            position:
+                "topright"
+        }
+    )
+    .addTo(map);
+
+
+/* ============================================================
+   LAYERS
+============================================================ */
+
+const roadLayer =
+    L.layerGroup()
+        .addTo(map);
+
+const floodRoadLayer =
+    L.layerGroup()
+        .addTo(map);
+
+const routeLayer =
+    L.layerGroup()
+        .addTo(map);
+
+const markerLayer =
+    L.layerGroup()
+        .addTo(map);
+
+const floodZoneLayer =
+    L.layerGroup()
+        .addTo(map);
+
+const temporaryLayer =
+    L.layerGroup()
+        .addTo(map);
+
+
+/* ============================================================
+   AI FLOOD PREDICTION LAYER
+============================================================ */
+
+const predictionLayer =
+    L.featureGroup()
+        .addTo(map);
+
+const predictFloodBtn =
+    document.getElementById("predictFloodBtn") ||
+    document.getElementById("btn-predict-flood");
+
+const predictionStatus =
+    document.getElementById("predictionStatus") ||
+    document.getElementById("prediction-status");
+
+const clearPredictionBtn =
+    document.getElementById("clearPredictionBtn");
+
+// ชั้นสำหรับจำลองน้ำจากผลการทำนาย AI
+const predictedWaterLayer =
+    L.featureGroup()
+        .addTo(map);
+
+let predictionData = null;
+let predictionRenderToken = 0;
+let predictedWaterVisible = false;
+
+
+/* ============================================================
+   RESET VIEW
+============================================================ */
+
+const ResetViewControl =
+    L.Control.extend({
+
+        options: {
+            position:
+                "topright"
+        },
+
+        onAdd: function () {
+
+            const container =
+                L.DomUtil.create(
+                    "div",
+                    "leaflet-control reset-view-control"
+                );
+
+
+            const button =
+                L.DomUtil.create(
+                    "button",
+                    "reset-view-button",
+                    container
+                );
+
+
+            button.type =
+                "button";
+
+
+            button.innerHTML =
+                "⌖";
+
+
+            button.title =
+                "Center map";
+
+
+            L.DomEvent.disableClickPropagation(
+                container
+            );
+
+
+            L.DomEvent.on(
+                button,
+                "click",
+                event => {
+
+                    L.DomEvent.stop(
+                        event
+                    );
+
+
+                    if (
+                        appState?.loaded
+                    ) {
+
+                        fitMapToGraph(
+                            appState
+                        );
+
+                    }
+
+                    else {
+
+                        map.setView(
+                            [
+                                7.0100,
+                                100.4700
+                            ],
+                            13
+                        );
+
+                    }
+
+                }
+            );
+
+
+            return container;
+        }
+
+    });
+
+
+map.addControl(
+    new ResetViewControl()
+);
+
+
+/* ============================================================
+   MAP SIZE
+============================================================ */
+
+setTimeout(
+    () => {
+
+        map.invalidateSize();
+
+    },
+    100
+);
+
+
+window.addEventListener(
+    "resize",
+    () => {
+
+        map.invalidateSize();
+
+    }
+);
+
+
+/* ============================================================
+   SIDEBAR
+============================================================ */
+
+sidebarToggle.addEventListener(
+    "click",
+    () => {
+
+        const closed =
+            app.classList.toggle(
+                "sidebar-collapsed"
+            );
+
+
+        document.body.classList.toggle(
+            "sidebar-is-closed",
+            closed
+        );
+
+
+        setTimeout(
+            () => {
+
+                map.invalidateSize();
+
+            },
+            300
+        );
+
+    }
+);
+
+
+/* ============================================================
+   COLLAPSIBLE PANELS
+============================================================ */
+
+document
+    .querySelectorAll(
+        ".collapsible-heading"
+    )
+    .forEach(
+        heading => {
+
+            heading.addEventListener(
+                "click",
+                () => {
+
+                    const panel =
+                        heading.closest(
+                            ".panel"
+                        );
+
+
+                    if (panel) {
+
+                        panel.classList.toggle(
+                            "collapsed"
+                        );
+
+                    }
+
+                }
+            );
+
+        }
+    );
+
+
+/* ============================================================
+   API
+============================================================ */
+
+async function getJson(
+    url
+) {
+
+    const response =
+        await fetch(url);
+
+
+    if (!response.ok) {
+
+        throw new Error(
+            `HTTP ${response.status}`
+        );
+
+    }
+
+
+    return response.json();
+}
+
+
+async function postJson(
+    url,
+    data = {}
+) {
+
+    const response =
+        await fetch(
+            url,
+            {
+                method:
+                    "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
+
+                body:
+                    JSON.stringify(
+                        data
+                    )
+            }
+        );
+
+
+    if (!response.ok) {
+
+        throw new Error(
+            `HTTP ${response.status}`
+        );
+
+    }
+
+
+    return response.json();
+}
+
+
+/* ============================================================
+   SYNC
+============================================================ */
+
+syncBtn.addEventListener(
+    "click",
+    async () => {
+
+        syncBtn.classList.add(
+            "syncing"
+        );
+
+
+        try {
+
+            const state =
+                await getJson(
+                    API.STATE
+                );
+
+
+            if (
+                !state ||
+                !state.loaded
+            ) {
+
+                throw new Error(
+                    "No state"
+                );
+
+            }
+
+
+            appState =
+                state;
+
+
+            restoreSelectedNodes(
+                state
+            );
+
+
+            renderState(
+                state,
+                false
+            );
+
+
+            updateMapLoadedStatus();
+
+            updateRouteButton();
+
+
+            showToast(
+                t("syncSuccess"),
+                "success"
+            );
+
+        }
+
+        catch (error) {
+
+            console.error(
+                error
+            );
+
+
+            showToast(
+                t("syncFailed"),
+                "error"
+            );
+
+        }
+
+        finally {
+
+            setTimeout(
+                () => {
+
+                    syncBtn.classList.remove(
+                        "syncing"
+                    );
+
+                },
+                350
+            );
+
+        }
+
+    }
+);
+
+
+/* ============================================================
+   LOAD MAP
+============================================================ */
+
+loadMapBtn.addEventListener(
+    "click",
+    async () => {
+
+        const path =
+            mapFilePath.value.trim();
+
+
+        if (!path) {
+
+            return;
+        }
+
+
+        setLoading(
+            loadMapBtn,
+            true,
+            "..."
+        );
+
+
+        try {
+
+            const state =
+                await postJson(
+                    API.LOAD,
+                    {
+                        mapFilePath:
+                        path,
+
+                        respectOneWay:
+                            travelMode ===
+                            "transport"
+                    }
+                );
+
+
+            if (
+                !state.ok ||
+                !state.loaded
+            ) {
+
+                throw new Error();
+            }
+
+
+            appState =
+                state;
+
+
+            selectedStartNode =
+                null;
+
+            selectedTargetNode =
+                null;
+
+            selectedFloodLatLng =
+                null;
+
+
+            startNodeText.textContent =
+                t("notSelected");
+
+            targetNodeText.textContent =
+                t("notSelected");
+
+            floodSelectionInfo.textContent =
+                t("notSelectedLocation");
+
+
+            routeResult.classList.add(
+                "hidden"
+            );
+
+
+            renderState(
+                state,
+                true
+            );
+
+            // ถ้าผู้ใช้กดดูผล AI ไว้ก่อนโหลดแผนที่
+            // ให้ map ผล AI ลงบนถนนอัตโนมัติหลัง graph โหลดเสร็จ
+            if (predictionData) {
+                const aiState = await postJson(
+                    API.APPLY_AI_RISK,
+                    { thresholdPercent: 25 }
+                );
+
+                if (aiState?.ok) {
+                    appState = aiState;
+                    renderState(aiState);
+
+                    if (predictionStatus) {
+                        setDynamicText(predictionStatus, "aiRoutingActive", {
+                            edges: Number(aiState.aiAffectedEdgeCount || 0).toLocaleString()
+                        });
+                    }
+                }
+            }
+
+
+            updateMapLoadedStatus();
+
+            updateRouteButton();
+
+
+            showToast(
+                t("mapLoaded"),
+                "success"
+            );
+
+        }
+
+        catch (error) {
+
+            console.error(
+                error
+            );
+
+
+            showToast(
+                t("mapFailed"),
+                "error"
+            );
+
+        }
+
+        finally {
+
+            setLoading(
+                loadMapBtn,
+                false,
+                t("loadMap")
+            );
+
+        }
+
+    }
+);
+
+
+/* ============================================================
+   TRAVEL MODE
+============================================================ */
+
+transportModeBtn.addEventListener(
+    "click",
+    () => {
+        openAppPage("routePage", transportModeBtn);
+        changeTravelMode("transport");
+    }
+);
+
+
+rescueModeBtn.addEventListener(
+    "click",
+    () => {
+        openAppPage("routePage", rescueModeBtn);
+        changeTravelMode("rescue");
+    }
+);
+
+
+async function changeTravelMode(
+    mode
+) {
+
+    if (
+        travelMode === mode
+    ) {
+
+        return;
+    }
+
+
+    travelMode =
+        mode;
+
+    updateTravelModeUI();
+
+
+    routeLayer.clearLayers();
+
+    routeResult.classList.add(
+        "hidden"
+    );
+
+
+    if (!appState?.loaded) {
+
+        return;
+    }
+
+
+    try {
+
+        appState =
+            await postJson(
+                API.TRAFFIC,
+                {
+                    respectOneWay:
+                        mode ===
+                        "transport"
+                }
+            );
+
+
+        /*
+         ใช้จุดหมายเดิม
+        */
+        if (
+            selectedTargetNode
+        ) {
+
+            const endpoint =
+                mode === "transport"
+                    ? API.SET_CAMP
+                    : API.SET_RESCUE;
+
+            const payload = {
+                nodeId: selectedTargetNode.id
+            };
+
+            if (mode === "rescue") {
+                // สลับจากขนส่งมากู้ภัย: ใช้จุดหมายเดิมเป็น request แรก
+                // แต่ไม่ไปล้าง queue ถ้ามีคำขอกู้ภัยอยู่แล้ว
+                if (appState?.rescueRequests?.length) {
+                    renderState(appState);
+                    updateRouteButton();
+                    return;
+                }
+                const details = await askRescuePointDetails(selectedTargetNode);
+                if (!details) {
+                    selectedTargetNode = null;
+                    renderState(appState);
+                    updateRouteButton();
+                    return;
+                }
+                payload.people = details.people;
+                payload.priority = details.priority;
+                payload.note = details.note || "";
+                payload.replaceExisting = true;
+            }
+
+            appState =
+                await postJson(
+                    endpoint,
+                    payload
+                );
+
+        }
+
+
+        renderState(
+            appState
+        );
+
+
+        updateRouteButton();
+
+    }
+
+    catch (error) {
+
+        console.error(
+            error
+        );
+
+    }
+
+}
+
+
+function updateTravelModeUI() {
+
+    transportModeBtn.classList.toggle(
+        "active",
+        travelMode ===
+        "transport"
+    );
+
+
+    rescueModeBtn.classList.toggle(
+        "active",
+        travelMode ===
+        "rescue"
+    );
+
+    if (rescuePlannerBox) {
+        rescuePlannerBox.classList.toggle("hidden", travelMode !== "rescue");
+    }
+
+    // โหมดกู้ภัยใช้ค่า routing ที่เรียบง่ายเป็นค่าเริ่มต้น
+    // และซ่อนช่องเทคนิคที่ไม่จำเป็นต่อการใช้งานหลัก
+    if (smartRoutingBox) {
+        smartRoutingBox.classList.toggle("hidden", travelMode === "rescue");
+    }
+    if (travelMode === "rescue") {
+        if (routePreference) routePreference.value = "BALANCED";
+        if (targetLocationLabel) targetLocationLabel.textContent = t("addRescueTarget");
+        if (targetLocationIcon) targetLocationIcon.textContent = "+";
+        routeResult?.classList.add("hidden");
+    } else {
+        if (targetLocationLabel) targetLocationLabel.textContent = t("destination");
+        if (targetLocationIcon) targetLocationIcon.textContent = "B";
+        if (rescuePlanResult) rescuePlanResult.classList.add("hidden");
+        if (rescueResultToggle) rescueResultToggle.classList.add("hidden");
+    }
+
+    updateRescuePlannerUI(appState);
+    updateRoutePageHeader();
+}
+
+
+/* ============================================================
+   LOCATION MODE
+============================================================ */
+
+selectStartBtn.addEventListener(
+    "click",
+    () => {
+
+        if (requireMap()) {
+
+            setClickMode(
+                "start"
+            );
+
+        }
+
+    }
+);
+
+
+selectTargetBtn.addEventListener(
+    "click",
+    () => {
+
+        if (requireMap()) {
+
+            setClickMode(
+                "target"
+            );
+
+        }
+
+    }
+);
+
+
+selectFloodBtn.addEventListener(
+    "click",
+    () => {
+
+        if (requireMap()) {
+
+            setClickMode(
+                "flood"
+            );
+
+        }
+
+    }
+);
+
+
+function setClickMode(
+    mode
+) {
+
+    clickMode =
+        mode;
+
+
+    selectStartBtn.classList.toggle(
+        "active",
+        mode ===
+        "start"
+    );
+
+
+    selectTargetBtn.classList.toggle(
+        "active",
+        mode ===
+        "target"
+    );
+
+
+    clickHint.classList.add(
+        "active"
+    );
+
+
+    if (
+        mode === "start"
+    ) {
+
+        clickHint.textContent =
+            t("selectStart");
+
+    }
+
+
+    else if (
+        mode === "target"
+    ) {
+
+        clickHint.textContent =
+            travelMode === "rescue" ? t("selectRescueTarget") : t("selectTarget");
+
+    }
+
+
+    else {
+
+        clickHint.textContent =
+            t("selectFloodHint");
+
+    }
+
+
+    map.getContainer().style.cursor =
+        "crosshair";
+}
+
+
+function clearClickMode() {
+
+    clickMode =
+        null;
+
+
+    selectStartBtn.classList.remove(
+        "active"
+    );
+
+
+    selectTargetBtn.classList.remove(
+        "active"
+    );
+
+
+    clickHint.classList.remove(
+        "active"
+    );
+
+
+    clickHint.textContent =
+        t("clickHint");
+
+
+    map.getContainer().style.cursor =
+        "";
+}
+
+
+/* ============================================================
+   MAP CLICK
+============================================================ */
+
+map.on(
+    "click",
+    async event => {
+
+        if (!clickMode) {
+
+            return;
+        }
+
+
+        if (
+            clickMode === "flood"
+        ) {
+
+            selectedFloodLatLng =
+                event.latlng;
+
+
+            floodSelectionInfo.textContent =
+                `${event.latlng.lat.toFixed(6)}, ${event.latlng.lng.toFixed(6)}`;
+
+
+            addFloodBtn.disabled =
+                false;
+
+
+            renderTemporaryFloodPreview();
+
+
+            clearClickMode();
+
+            return;
+        }
+
+
+        const node =
+            findNearestNode(
+                event.latlng.lat,
+                event.latlng.lng
+            );
+
+
+        if (!node) {
+
+            clearClickMode();
+
+            return;
+        }
+
+
+        if (
+            clickMode === "start"
+        ) {
+
+            await setStartNode(
+                node
+            );
+
+        }
+
+        else {
+
+            await setTargetNode(
+                node
+            );
+
+        }
+
+
+        clearClickMode();
+
+    }
+);
+
+
+/* ============================================================
+   START
+============================================================ */
+
+async function setStartNode(
+    node
+) {
+
+    try {
+
+        const state =
+            await postJson(
+                API.SET_START,
+                {
+                    nodeId:
+                    node.id
+                }
+            );
+
+
+        selectedStartNode =
+            node;
+
+
+        appState =
+            state;
+
+
+        startNodeText.textContent =
+            `Node ${node.id}`;
+
+
+        routeLayer.clearLayers();
+
+        routeResult.classList.add(
+            "hidden"
+        );
+
+
+        renderState(
+            state
+        );
+
+
+        updateRouteButton();
+
+
+        showToast(
+            t("setStartSuccess"),
+            "success"
+        );
+
+    }
+
+    catch (error) {
+
+        console.error(
+            error
+        );
+
+    }
+
+}
+
+
+/* ============================================================
+   RESCUE POINT DETAILS
+   ทุกจุดกู้ภัยมีจำนวนคนของตัวเอง ไม่ใช้ค่า global ของ "จุดถัดไป"
+============================================================ */
+let rescuePointDialogResolver = null;
+
+function clampRescuePeople(value) {
+    const n = Math.round(Number(value) || 1);
+    return Math.min(200, Math.max(1, n));
+}
+
+function closeRescuePointDialog(result = null) {
+    if (rescuePointDialog) rescuePointDialog.classList.add("hidden");
+    const resolve = rescuePointDialogResolver;
+    rescuePointDialogResolver = null;
+    if (resolve) resolve(result);
+}
+
+function askRescuePointDetails(node) {
+    if (!rescuePointDialog || !rescuePointPeople || !rescuePointPriority) {
+        return Promise.resolve({ people: 1, priority: "NORMAL", note: "" });
+    }
+
+    if (rescuePointDialogResolver) {
+        closeRescuePointDialog(null);
+    }
+
+    rescuePointPeople.value = "1";
+    rescuePointPriority.value = "NORMAL";
+    if (rescuePointNodeText) rescuePointNodeText.textContent = `Node ${node.id}`;
+    rescuePointDialog.classList.remove("hidden");
+
+    requestAnimationFrame(() => {
+        rescuePointPeople.focus();
+        rescuePointPeople.select();
+    });
+
+    return new Promise(resolve => {
+        rescuePointDialogResolver = resolve;
+    });
+}
+
+if (rescuePointConfirm) {
+    rescuePointConfirm.addEventListener("click", () => {
+        const people = clampRescuePeople(rescuePointPeople?.value);
+        if (rescuePointPeople) rescuePointPeople.value = String(people);
+        closeRescuePointDialog({
+            people,
+            priority: rescuePointPriority?.value || "NORMAL",
+            note: ""
+        });
+    });
+}
+
+for (const cancelButton of [rescuePointCancel, rescuePointCancelX]) {
+    cancelButton?.addEventListener("click", () => closeRescuePointDialog(null));
+}
+
+rescuePeopleMinus?.addEventListener("click", () => {
+    rescuePointPeople.value = String(clampRescuePeople(Number(rescuePointPeople.value) - 1));
+});
+rescuePeoplePlus?.addEventListener("click", () => {
+    rescuePointPeople.value = String(clampRescuePeople(Number(rescuePointPeople.value) + 1));
+});
+rescuePointPeople?.addEventListener("input", () => {
+    if (Number(rescuePointPeople.value) > 200) rescuePointPeople.value = "200";
+});
+rescuePointPeople?.addEventListener("keydown", event => {
+    if (event.key === "Enter") rescuePointConfirm?.click();
+    if (event.key === "Escape") closeRescuePointDialog(null);
+});
+
+/* ============================================================
+   TARGET
+============================================================ */
+
+async function setTargetNode(
+    node
+) {
+
+    try {
+
+        const endpoint =
+            travelMode === "transport"
+                ? API.SET_CAMP
+                : API.SET_RESCUE;
+
+
+        const payload = {
+            nodeId: node.id
+        };
+
+        if (travelMode === "rescue") {
+            const details = await askRescuePointDetails(node);
+            if (!details) return;
+
+            payload.people = details.people;
+            payload.priority = details.priority;
+            payload.note = details.note || "";
+            payload.replaceExisting = false;
+        }
+
+        const state =
+            await postJson(
+                endpoint,
+                payload
+            );
+
+
+        selectedTargetNode =
+            node;
+
+
+        appState =
+            state;
+
+
+        targetNodeText.textContent =
+            travelMode === "rescue"
+                ? tf("rescueTargetCountLatest", { count: state.rescueRequests?.length || 1, node: node.id })
+                : `Node ${node.id}`;
+
+
+        routeLayer.clearLayers();
+
+        routeResult.classList.add(
+            "hidden"
+        );
+
+
+        renderState(
+            state
+        );
+
+
+        updateRouteButton();
+
+
+        showToast(
+            travelMode === "rescue" ? t("rescuePointAdded") : t("setTargetSuccess"),
+            "success"
+        );
+
+    }
+
+    catch (error) {
+
+        console.error(
+            error
+        );
+
+    }
+
+}
+
+
+/* ============================================================
+   ROUTE
+============================================================ */
+
+async function runMultiRescuePlan(triggerButton = findRouteBtn) {
+    if (!appState?.loaded || !selectedStartNode) {
+        showToast(t("rescueNeedStart"), "error");
+        return;
+    }
+
+    const requests = appState?.rescueRequests || [];
+    if (!requests.length) {
+        showToast(t("rescueNeedPoint"), "error");
+        return;
+    }
+
+    const originalText = triggerButton?.textContent || t("findRoute");
+    if (triggerButton) {
+        triggerButton.disabled = true;
+        triggerButton.textContent = t("rescuePlanning");
+    }
+
+    try {
+        const state = await postJson(API.RUN_MULTI_RESCUE, {
+            // Rescue UI แบบ minimal ใช้ค่าที่อ่านง่ายเป็น default
+            preference: routePreference?.value || "BALANCED",
+            fleetSize: Math.max(1, Number(rescueFleetSize?.value || requests.length || 1)),
+            vehicleCapacity: Math.max(1, Number(rescueVehicleCapacity?.value || 4))
+        });
+
+        if (!state.ok || !state.rescueAssignments?.length) {
+            throw new Error("no assignment");
+        }
+
+        appState = state;
+        renderState(state);
+        updateRescuePlannerUI(state);
+        openRescueResultPanel();
+        showToast(tf("rescuePlanSuccess", { count: state.rescueAssignments.length }), "success");
+    } catch (error) {
+        console.error(error);
+        routeLayer.clearLayers();
+        showToast(t("rescuePlanFailed"), "error");
+    } finally {
+        if (triggerButton) triggerButton.textContent = originalText;
+        updateRescuePlannerUI(appState);
+        updateRouteButton();
+    }
+}
+
+findRouteBtn.addEventListener(
+    "click",
+    async () => {
+        // จุดสำคัญ: ในโหมดกู้ภัย ห้ามเรียก runRescueMission() ตัวเก่า
+        // เพราะ method นั้นเลือกเฉพาะ rescuePoints จุดล่าสุด
+        if (travelMode === "rescue") {
+            await runMultiRescuePlan(findRouteBtn);
+            return;
+        }
+
+        if (!selectedStartNode || !selectedTargetNode) {
+            showToast(t("selectBoth"), "error");
+            return;
+        }
+
+        if (String(selectedStartNode.id) === String(selectedTargetNode.id)) {
+            showToast(t("samePoint"), "error");
+            return;
+        }
+
+        setLoading(findRouteBtn, true, t("findingRoute"));
+
+        try {
+            const state = await postJson(API.RUN_TRANSPORT, {
+                preference: routePreference?.value || "BALANCED"
+            });
+
+            if (!state.ok || !Array.isArray(state.routeEdgeIds) || state.routeEdgeIds.length === 0) {
+                throw new Error();
+            }
+
+            appState = state;
+            renderState(state);
+
+            routeDistance.textContent = formatDistance(calculateRouteDistance(state));
+            if (routeAverageRisk) routeAverageRisk.textContent = `${Math.round((state.routeAverageRisk || 0) * 100)}%`;
+            if (routeMaxRisk) routeMaxRisk.textContent = `${Math.round((state.routeMaxRisk || 0) * 100)}%`;
+            if (routeExplanation) routeExplanation.textContent = state.routeExplanation || "";
+            routeResult.classList.remove("hidden");
+            showToast(t("routeSuccess"), "success");
+        } catch (error) {
+            routeLayer.clearLayers();
+            showToast(t("routeFailed"), "error");
+        } finally {
+            setLoading(findRouteBtn, false, t("findRoute"));
+            updateRouteButton();
+        }
+    }
+);
+
+
+/* ============================================================
+   MULTI-VEHICLE RESCUE ASSIGNMENT
+============================================================ */
+
+if (runMultiRescueBtn) {
+    runMultiRescueBtn.addEventListener("click", () => runMultiRescuePlan(runMultiRescueBtn));
+}
+
+if (rescueFleetSize) {
+    rescueFleetSize.addEventListener("input", () => {
+        rescueFleetManuallyEdited = true;
+    });
+}
+
+if (clearRescueRequestsBtn) {
+    clearRescueRequestsBtn.addEventListener("click", async () => {
+        try {
+            const state = await postJson(API.CLEAR_RESCUE);
+            appState = state;
+            selectedTargetNode = null;
+            rescueFleetManuallyEdited = false;
+            targetNodeText.textContent = t("notSelected");
+            routeLayer.clearLayers();
+            renderState(state);
+            closeRescueResultPanel();
+            updateRescuePlannerUI(state);
+            showToast(t("rescueCleared"), "success");
+        } catch (error) {
+            console.error(error);
+        }
+    });
+}
+
+function openRescueResultPanel() {
+    if (!rescuePlanResult || !rescueResultToggle) return;
+    rescuePlanResult.classList.remove("hidden");
+    rescueResultToggle.classList.remove("hidden");
+    rescueResultToggle.setAttribute("aria-expanded", "true");
+}
+
+function closeRescueResultPanel() {
+    if (!rescuePlanResult || !rescueResultToggle) return;
+    rescuePlanResult.classList.add("hidden");
+    rescueResultToggle.setAttribute("aria-expanded", "false");
+}
+
+if (rescueResultToggle) {
+    rescueResultToggle.addEventListener("click", () => {
+        if (rescuePlanResult?.classList.contains("hidden")) {
+            openRescueResultPanel();
+        } else {
+            closeRescueResultPanel();
+        }
+    });
+}
+
+if (rescueResultClose) {
+    rescueResultClose.addEventListener("click", closeRescueResultPanel);
+}
+
+function updateRescuePlannerUI(state) {
+    if (!rescuePlannerBox) return;
+
+    const requests = state?.rescueRequests || [];
+    const assignments = state?.rescueAssignments || [];
+    const totalPeople = requests.reduce((sum, item) => sum + Number(item.people || 0), 0);
+
+    if (rescueQueueInfo) {
+        if (requests.length) {
+            const rows = requests.map(item =>
+                `<div class="rescue-queue-row"><strong>${item.id}</strong><span>${tf("rescueQueueRowPeople", { count: Number(item.people || 0) })}</span></div>`
+            ).join("");
+            rescueQueueInfo.innerHTML =
+                `<div class="rescue-queue-total"><strong>${tf("rescueQueueCount", { count: requests.length })}</strong><span>${tf("rescueQueuePeople", { count: totalPeople })}</span></div>${rows}`;
+        } else {
+            rescueQueueInfo.innerHTML = `<div class="rescue-queue-total"><strong>${tf("rescueQueueCount", { count: 0 })}</strong><span>${t("rescueEmptyHint")}</span></div>`;
+        }
+    }
+
+    // ค่าเริ่มต้นจำนวนรถจะตามจำนวนจุดโดยอัตโนมัติ จนกว่าผู้ใช้จะปรับเอง
+    if (rescueFleetSize && !rescueFleetManuallyEdited && requests.length > 0) {
+        rescueFleetSize.value = String(Math.min(50, Math.max(1, requests.length)));
+    }
+
+    if (clearRescueRequestsBtn) {
+        clearRescueRequestsBtn.disabled = requests.length === 0;
+    }
+
+    if (findRouteBtn && travelMode === "rescue") {
+        findRouteBtn.disabled = !state?.loaded || !selectedStartNode || requests.length === 0;
+        findRouteBtn.textContent = requests.length
+            ? tf("rescuePlanButton", { count: requests.length })
+            : t("rescueAddFirst");
+    }
+
+    if (!rescuePlanResult || !rescueAssignmentList || !rescuePlanSummary || !rescueResultToggle) return;
+
+    if (travelMode !== "rescue") {
+        rescuePlanResult.classList.add("hidden");
+        rescueResultToggle.classList.add("hidden");
+        rescueResultToggle.setAttribute("aria-expanded", "false");
+        return;
+    }
+
+    if (!assignments.length) {
+        rescuePlanResult.classList.add("hidden");
+        rescueResultToggle.classList.add("hidden");
+        rescueResultToggle.setAttribute("aria-expanded", "false");
+        rescueAssignmentList.innerHTML = "";
+        rescuePlanSummary.textContent = "";
+        return;
+    }
+
+    const uniqueTargets = new Set(
+        assignments.flatMap(item =>
+            (item.legs || [])
+                .filter(leg => leg.type === "PICKUP" && leg.requestId)
+                .map(leg => String(leg.requestId))
+        )
+    ).size;
+    const assigned = state.rescuePlanAssignedPeople || 0;
+    const total = state.rescuePlanTotalPeople || 0;
+    const unserved = state.rescuePlanUnservedPeople || 0;
+
+    rescueResultToggle.classList.remove("hidden");
+    rescueResultToggle.textContent = tf("rescueResultButtonLarge", { count: uniqueTargets });
+    const rescueTitle = document.querySelector('#rescuePlanResult [data-i18n="rescuePlan"]');
+    if (rescueTitle) rescueTitle.textContent = t("rescueResultTitleLarge");
+    rescuePlanSummary.innerHTML = `<div class="rescue-summary-highlight">${unserved > 0
+        ? tf("rescueSummaryUnserved", { vehicles: assignments.length, assigned, total, unserved })
+        : tf("rescueSummaryComplete", { vehicles: assignments.length, points: uniqueTargets, total })}</div><div class="rescue-summary-sub">${t("rescuePanelLegend")}</div>`;
+
+    rescueAssignmentList.innerHTML = "";
+    assignments.forEach((assignment, index) => {
+        const pickupLegs = (assignment.legs || []).filter(leg => leg.type === "PICKUP");
+        const tripGroups = new Map();
+
+        pickupLegs.forEach(leg => {
+            const trip = Number(leg.tripNumber || 1);
+            if (!tripGroups.has(trip)) tripGroups.set(trip, []);
+            tripGroups.get(trip).push(leg);
+        });
+
+        const routeText = [...tripGroups.entries()]
+            .map(([trip, legs]) => {
+                const stops = legs.map(leg => `${leg.requestId} (${leg.assignedPeople})`).join(" → ");
+                return `<div class="assignment-trip-line">${tf("rescueTripRoute", { trip, stops })}</div>`;
+            })
+            .join("");
+
+        const card = document.createElement("div");
+        card.className = "assignment-card compact large";
+        card.innerHTML = `
+            <div class="assignment-badge">${tf("routeLegendLine", { index: index + 1 })}</div>
+            <div class="assignment-main">
+              <strong>${tf("rescueAssignmentHeader", { index: index + 1 })}</strong>
+              <span>${tf("rescueAssignmentServes", { count: assignment.assignedPeople })}</span>
+            </div>
+            <small>${tf("rescueAssignmentMetaLarge", { trips: assignment.tripCount || 1, points: pickupLegs.length, distance: (Number(assignment.distanceMeters || 0) / 1000).toFixed(2) })}</small>
+            <div class="assignment-route-sequence">${routeText}</div>
+        `;
+        rescueAssignmentList.appendChild(card);
+    });
+}
+
+
+/* ============================================================
+   FLOOD
+============================================================ */
+
+addFloodBtn.addEventListener(
+    "click",
+    async () => {
+
+        if (
+            !selectedFloodLatLng
+        ) {
+
+            return;
+        }
+
+
+        try {
+
+            const state =
+                await postJson(
+                    API.ADD_FLOOD,
+                    {
+                        lat:
+                        selectedFloodLatLng.lat,
+
+                        lon:
+                        selectedFloodLatLng.lng,
+
+                        radiusKm:
+                            Number(
+                                floodRadius.value
+                            ),
+
+                        level:
+                        floodLevel.value,
+
+                        overrideType: "CONFIRMED_FLOOD",
+
+                        reporter: "Field Report",
+
+                        note:
+                        fieldNote?.value || ""
+                    }
+                );
+
+
+            appState =
+                state;
+
+
+            selectedFloodLatLng =
+                null;
+
+
+            temporaryLayer.clearLayers();
+
+
+            floodSelectionInfo.textContent =
+                t("notSelectedLocation");
+
+
+            addFloodBtn.disabled =
+                true;
+
+
+            routeResult.classList.add(
+                "hidden"
+            );
+
+
+            renderState(
+                state
+            );
+
+
+            showToast(
+                t("floodAdded"),
+                "success"
+            );
+
+        }
+
+        catch (error) {
+
+            console.error(
+                error
+            );
+
+        }
+
+    }
+);
+
+
+clearFloodBtn.addEventListener(
+    "click",
+    async () => {
+
+        try {
+
+            const state =
+                await postJson(
+                    API.CLEAR_FLOOD
+                );
+
+
+            appState =
+                state;
+
+
+            renderState(
+                state
+            );
+
+
+            showToast(
+                t("floodCleared"),
+                "success"
+            );
+
+        }
+
+        catch (error) {
+
+            console.error(
+                error
+            );
+
+        }
+
+    }
+);
+
+
+/* ============================================================
+   CLEAR EVERYTHING
+============================================================ */
+
+async function clearEverything() {
+    if (!clearAllBtn) return;
+
+    const originalText = clearAllBtn.textContent;
+    clearAllBtn.disabled = true;
+    clearAllBtn.textContent = t("clearWorking");
+
+    try {
+        const state = await postJson(API.RESET);
+        appState = state;
+
+        // Local selections / modes
+        selectedStartNode = null;
+        selectedTargetNode = null;
+        selectedFloodLatLng = null;
+        clearClickMode();
+
+        // Leaflet layers
+        roadLayer.clearLayers();
+        floodRoadLayer.clearLayers();
+        routeLayer.clearLayers();
+        markerLayer.clearLayers();
+        floodZoneLayer.clearLayers();
+        temporaryLayer.clearLayers();
+
+        // AI prediction + simulated water
+        clearPredictionLayer();
+        clearPredictedWater();
+        predictionData = null;
+
+        // UI text / controls
+        startNodeText.textContent = t("notSelected");
+        targetNodeText.textContent = t("notSelected");
+        floodSelectionInfo.textContent = t("notSelectedLocation");
+        addFloodBtn.disabled = true;
+        clearFloodBtn.disabled = true;
+        findRouteBtn.disabled = true;
+        routeResult.classList.add("hidden");
+        if (rescuePlanResult) rescuePlanResult.classList.add("hidden");
+        if (rescueAssignmentList) rescueAssignmentList.innerHTML = "";
+        if (rescueQueueInfo) rescueQueueInfo.textContent = t("rescueEmptyHint");
+
+        if (predictionStatus) {
+            setDynamicText(predictionStatus, "notAnalyzed");
+        }
+
+        if (clearPredictionBtn) {
+            clearPredictionBtn.disabled = true;
+        }
+
+        if (predictFloodBtn) {
+            predictFloodBtn.disabled = false;
+            predictFloodBtn.textContent = t("predictFlood");
+        }
+
+        updateMapLoadedStatus();
+        updateRouteButton();
+
+        // Return map to Hat Yai default view
+        map.setView([7.0084, 100.4747], 13);
+
+        showToast(t("clearSuccess"), "success");
+    } catch (error) {
+        console.error("Clear all error:", error);
+        showToast(t("clearFailed"), "error");
+    } finally {
+        clearAllBtn.disabled = false;
+        clearAllBtn.textContent = originalText || t("clearAll");
+    }
+}
+
+if (clearAllBtn) {
+    clearAllBtn.addEventListener("click", clearEverything);
+}
+
+
+/* ============================================================
+   RENDER
+============================================================ */
+
+function renderState(
+    state,
+    fit = false
+) {
+
+    if (
+        !state?.loaded
+    ) {
+
+        return;
+    }
+
+
+    renderRoads(
+        state
+    );
+
+    renderFloodZones(
+        state
+    );
+
+    renderMarkers(
+        state
+    );
+
+    renderRoute(
+        state
+    );
+
+    updateRescuePlannerUI(state);
+
+
+    clearFloodBtn.disabled =
+        !state.floodZones?.length;
+
+
+    if (fit) {
+
+        requestAnimationFrame(
+            () => {
+
+                map.invalidateSize();
+
+                fitMapToGraph(
+                    state
+                );
+
+            }
+        );
+
+    }
+
+}
+
+
+/* ============================================================
+   ROADS
+============================================================ */
+
+function renderRoads(
+    state
+) {
+
+    roadLayer.clearLayers();
+
+    floodRoadLayer.clearLayers();
+
+
+    const nodes =
+        createNodeMap(
+            state.nodes
+        );
+
+
+    const drawn =
+        new Set();
+
+
+    for (
+        const edge of
+    state.edges || []
+        ) {
+
+        if (
+            edge.reverseEdge
+        ) {
+
+            continue;
+        }
+
+
+        const source =
+            nodes.get(
+                String(
+                    edge.sourceId
+                )
+            );
+
+
+        const target =
+            nodes.get(
+                String(
+                    edge.targetId
+                )
+            );
+
+
+        if (
+            !source ||
+            !target
+        ) {
+
+            continue;
+        }
+
+
+        const key =
+            makePhysicalEdgeKey(
+                source.id,
+                target.id
+            );
+
+
+        if (
+            drawn.has(key)
+        ) {
+
+            continue;
+        }
+
+
+        drawn.add(
+            key
+        );
+
+
+        const coords = [
+
+            [
+                Number(source.lat),
+                Number(source.lon)
+            ],
+
+            [
+                Number(target.lat),
+                Number(target.lon)
+            ]
+
+        ];
+
+
+        const risk =
+            Number(
+                edge.riskLevel
+            );
+
+
+        L.polyline(
+            coords,
+            {
+                color:
+                    risk > 0
+                        ? getFloodRoadColor(risk)
+                        : "#85909c",
+
+                weight:
+                    risk > 0
+                        ? 4
+                        : 2,
+
+                opacity:
+                    risk > 0
+                        ? 0.86
+                        : 0.44
+            }
+        )
+            .addTo(
+                risk > 0
+                    ? floodRoadLayer
+                    : roadLayer
+            );
+
+    }
+
+}
+
+
+/* ============================================================
+   ROUTE RENDER
+============================================================ */
+
+function renderRoute(
+    state
+) {
+
+    routeLayer.clearLayers();
+
+
+    const assignmentRoutes = state.rescueAssignments || [];
+    if (assignmentRoutes.length) {
+        const nodes = createNodeMap(state.nodes);
+        const edges = new Map((state.edges || []).map(edge => [String(edge.id), edge]));
+        const colors = ["#2563eb", "#dc2626", "#059669", "#7c3aed", "#ea580c", "#0891b2"];
+
+        assignmentRoutes.forEach((assignment, assignmentIndex) => {
+            const color = colors[assignmentIndex % colors.length];
+            const latlngs = buildPathLatLngs(assignment.routeEdgeIds || [], nodes, edges);
+            if (latlngs.length < 2) return;
+
+            const label = tf("routeLegendLine", { index: assignmentIndex + 1 });
+            L.polyline(latlngs, {
+                color,
+                weight: 6,
+                opacity: 0.95
+            })
+                .bindTooltip(
+                    tf("rescueRouteTooltip", { label, trips: assignment.tripCount || 1, people: assignment.assignedPeople || 0 })
+                )
+                .addTo(routeLayer);
+
+            addRouteArrowMarkers(latlngs, color);
+            addRouteLabel(latlngs, label, color);
+        });
+
+        return;
+    }
+
+
+    if (
+        !state.routeEdgeIds?.length
+    ) {
+
+        return;
+    }
+
+
+    const nodes =
+        createNodeMap(
+            state.nodes
+        );
+
+
+    const edges =
+        new Map(
+            (state.edges || [])
+                .map(
+                    edge => [
+                        String(edge.id),
+                        edge
+                    ]
+                )
+        );
+
+
+    const latlngs = buildPathLatLngs(state.routeEdgeIds, nodes, edges);
+    if (latlngs.length < 2) return;
+
+    L.polyline(latlngs, {
+        color: "#2563eb",
+        weight: 6,
+        opacity: 0.95
+    })
+        .bindTooltip(t("transportRouteLabel"))
+        .addTo(routeLayer);
+
+    addRouteArrowMarkers(latlngs, "#2563eb");
+    addRouteLabel(latlngs, t("transportRouteLabel"), "#2563eb");
+
+}
+
+
+/* ============================================================
+   MARKERS
+============================================================ */
+
+function renderMarkers(
+    state
+) {
+
+    markerLayer.clearLayers();
+
+
+    const nodes =
+        createNodeMap(
+            state.nodes
+        );
+
+
+    if (
+        selectedStartNode
+    ) {
+
+        const node =
+            nodes.get(
+                String(
+                    selectedStartNode.id
+                )
+            );
+
+
+        if (node) {
+
+            L.marker(
+                [
+                    Number(node.lat),
+                    Number(node.lon)
+                ],
+                {
+                    icon:
+                        createStartIcon()
+                }
+            )
+                .bindTooltip(
+                    t("start")
+                )
+                .addTo(
+                    markerLayer
+                );
+
+        }
+
+    }
+
+
+    for (const request of state.rescueRequests || []) {
+        const node = nodes.get(String(request.nodeId));
+        if (!node) continue;
+
+        L.marker(
+            [Number(node.lat), Number(node.lon)],
+            { icon: createRescueRequestIcon(request.people) }
+        )
+            .bindTooltip(
+                `${request.id} • ${priorityText(request.priority)} • ${tf("rescueAssignmentPeople", { count: request.people })}`
+            )
+            .addTo(markerLayer);
+    }
+
+
+    if (
+        selectedTargetNode &&
+        !(state.rescueRequests || []).some(
+            request => String(request.nodeId) === String(selectedTargetNode.id)
+        )
+    ) {
+
+        const node =
+            nodes.get(
+                String(
+                    selectedTargetNode.id
+                )
+            );
+
+
+        if (node) {
+
+            L.marker(
+                [
+                    Number(node.lat),
+                    Number(node.lon)
+                ],
+                {
+                    icon:
+                        createTargetIcon()
+                }
+            )
+                .bindTooltip(
+                    t("destination")
+                )
+                .addTo(
+                    markerLayer
+                );
+
+        }
+
+    }
+
+}
+
+
+/* ============================================================
+   FLOOD ZONES
+============================================================ */
+
+function renderFloodZones(
+    state
+) {
+
+    floodZoneLayer.clearLayers();
+
+
+    for (
+        const zone of
+    state.floodZones || []
+        ) {
+
+        const style =
+            getFloodZoneStyle(
+                zone.level
+            );
+
+
+        L.circle(
+            [
+                zone.lat,
+                zone.lon
+            ],
+            {
+                radius:
+                    zone.radiusKm
+                    *
+                    1000,
+
+                color:
+                style.color,
+
+                fillColor:
+                style.color,
+
+                fillOpacity:
+                    0.13
+            }
+        )
+            .bindTooltip(
+                `${zone.id || t("floodSection")} • ${floodLevelText(zone.level)}${zone.note ? ` • ${zone.note}` : ""}`
+            )
+            .addTo(
+                floodZoneLayer
+            );
+
+    }
+
+}
+
+
+/* ============================================================
+   AI FLOOD PREDICTION
+============================================================ */
+
+function predictionRiskColor(risk) {
+    if (risk >= 75) return "#d7191c";
+    if (risk >= 50) return "#f07c00";
+    if (risk >= 25) return "#f3c623";
+    return "#55b95a";
+}
+
+function predictionRiskOpacity(risk) {
+    // ให้สีคงที่และชัดทั้งตอนซูมเข้า/ออก
+    if (risk >= 75) return 0.78;
+    if (risk >= 50) return 0.68;
+    if (risk >= 25) return 0.58;
+    return 0.0;
+}
+
+function getPredictionRisk(props) {
+    let risk = Number(props?.risk_percent);
+
+    if (!Number.isFinite(risk)) {
+        const probability = Number(props?.risk_probability);
+        if (Number.isFinite(probability)) {
+            risk = probability <= 1 ? probability * 100 : probability;
+        }
+    }
+
+    if (!Number.isFinite(risk)) {
+        risk = Number(props?.prediction);
+    }
+
+    if (!Number.isFinite(risk)) {
+        risk = Number(props?.risk);
+    }
+
+    if (!Number.isFinite(risk)) risk = 0;
+    return Math.max(0, Math.min(100, risk));
+}
+
+function predictionLevel(risk) {
+    if (risk >= 75) return currentLanguage === "th" ? "สูงมาก" : "Very high";
+    if (risk >= 50) return currentLanguage === "th" ? "สูง" : "High";
+    if (risk >= 25) return currentLanguage === "th" ? "ปานกลาง" : "Medium";
+    return currentLanguage === "th" ? "ต่ำ" : "Low";
+}
+
+function clearPredictionLayer() {
+    predictionRenderToken++;
+    predictionLayer.clearLayers();
+}
+
+// ใช้ Canvas เดียวสำหรับผล AI
+// ไม่ clear/re-render ตอน zoom หรือ pan เพื่อไม่ให้ภาพกระพริบ จาง หรือกระตุก
+const predictionCanvasRenderer = L.canvas({
+    padding: 0.15,
+    tolerance: 0
+});
+
+function renderPrediction(geojson) {
+    clearPredictionLayer();
+
+    if (!geojson || !Array.isArray(geojson.features)) {
+        throw new Error("Invalid GeoJSON file");
+    }
+
+    predictionData = geojson;
+
+    // แสดงเฉพาะพื้นที่ที่ถือว่า "เสี่ยง" >= 25%
+    // ตัดกริดความเสี่ยงต่ำออกทั้งหมด เพื่อลดจำนวน polygon ที่ต้องวาด
+    // วิธีนี้ทำให้ซูมลื่นกว่าเดิมมาก โดยไม่ต้องซ่อน layer ระหว่างซูม
+    const riskFeatures = [];
+    let minRisk = Infinity;
+    let maxRisk = -Infinity;
+
+    for (const feature of geojson.features) {
+        if (!feature?.geometry) continue;
+
+        const geometryType = feature.geometry.type;
+        if (geometryType !== "Polygon" && geometryType !== "MultiPolygon") {
+            continue;
+        }
+
+        const risk = getPredictionRisk(feature.properties || {});
+        if (risk < 25) continue;
+
+        minRisk = Math.min(minRisk, risk);
+        maxRisk = Math.max(maxRisk, risk);
+        riskFeatures.push(feature);
+    }
+
+    const collection = {
+        type: "FeatureCollection",
+        features: riskFeatures
+    };
+
+    // GeoJSON layer เดียว + Canvas เดียว
+    // ไม่ผูก tooltip/click รายกริด ลด hit-test และ DOM overhead
+    const layer = L.geoJSON(collection, {
+        renderer: predictionCanvasRenderer,
+        interactive: false,
+        smoothFactor: 2.0,
+        style: (feature) => {
+            const risk = getPredictionRisk(feature?.properties || {});
+            const color = predictionRiskColor(risk);
+
+            return {
+                renderer: predictionCanvasRenderer,
+                color,
+                weight: 0.45,
+                opacity: 0.75,
+                fillColor: color,
+                fillOpacity: predictionRiskOpacity(risk),
+                interactive: false
+            };
+        }
+    });
+
+    layer.addTo(predictionLayer);
+
+    if (predictionStatus) {
+        setDynamicText(predictionStatus, "aiRiskStatus", {
+            count: riskFeatures.length.toLocaleString(),
+            level: `${Number.isFinite(minRisk) ? minRisk.toFixed(1) : "0.0"}–${Number.isFinite(maxRisk) ? maxRisk.toFixed(1) : "0.0"}%`
+        });
+    }
+}
+
+async function runFloodPrediction() {
+    if (!predictFloodBtn) return;
+
+    clearPredictionLayer();
+    clearPredictedWater();
+    predictionData = null;
+
+    if (clearPredictionBtn) {
+        clearPredictionBtn.disabled = true;
+    }
+
+    predictFloodBtn.disabled = true;
+    predictFloodBtn.textContent = t("aiAnalyzing");
+
+    if (predictionStatus) {
+        setDynamicText(predictionStatus, "aiLoading");
+    }
+
+    try {
+        const response = await fetch(API.PREDICT_FLOOD, {
+            method: "GET",
+            cache: "no-store"
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const geojson = await response.json();
+
+        // 1) วาดผล AI บนแผนที่
+        renderPrediction(geojson);
+
+        // 2) ถ้ามี road graph แล้ว ให้ backend map AI grid -> Edge ทันที
+        //    Routing จึงใช้ค่าความเสี่ยงชุดเดียวกับที่เห็นบนแผนที่จริง ๆ
+        if (appState?.loaded) {
+            if (predictionStatus) {
+                setDynamicText(predictionStatus, "aiApplying");
+            }
+
+            const state = await postJson(
+                API.APPLY_AI_RISK,
+                { thresholdPercent: 25 }
+            );
+
+            if (!state?.ok) {
+                throw new Error("Map AI risk to roads failed");
+            }
+
+            appState = state;
+            renderState(state);
+
+            if (predictionStatus) {
+                setDynamicText(predictionStatus, "aiRoutingDetail", {
+                    cells: Number(state.aiRiskCellCount || 0).toLocaleString(),
+                    edges: Number(state.aiAffectedEdgeCount || 0).toLocaleString(),
+                    threshold: Math.round(Number(state.aiRiskThresholdPercent || 25))
+                });
+            }
+        } else if (predictionStatus) {
+            setDynamicText(predictionStatus, "aiDisplayedNoMap");
+        }
+
+        if (clearPredictionBtn) {
+            clearPredictionBtn.disabled = false;
+        }
+
+        showToast(
+            appState?.loaded
+                ? t("aiApplied")
+                : t("aiDisplayed"),
+            "success"
+        );
+    } catch (error) {
+        console.error("Prediction error:", error);
+        clearPredictionLayer();
+        clearPredictedWater();
+        predictionData = null;
+
+        if (clearPredictionBtn) {
+            clearPredictionBtn.disabled = true;
+        }
+
+        if (predictionStatus) {
+            setDynamicText(predictionStatus, "aiDisplayFailed", {
+                message: error?.message || "Unknown error"
+            });
+        }
+
+        showToast(t("aiLoadFailed"), "error");
+    } finally {
+        predictFloodBtn.disabled = false;
+        predictFloodBtn.textContent = t("predictFlood");
+    }
+}
+
+
+if (predictFloodBtn) {
+    predictFloodBtn.addEventListener("click", runFloodPrediction);
+}
+
+
+/* ============================================================
+   SIMULATE WATER FROM AI PREDICTION
+============================================================ */
+
+function predictedRiskToFloodLevel(risk) {
+    // แปลงความเสี่ยง AI ให้เป็นระดับเดียวกับ Flood Simulation ปกติ
+    if (risk >= 75) return "DEEP";
+    if (risk >= 50) return "MEDIUM";
+    if (risk >= 25) return "SHALLOW";
+    return null;
+}
+
+function clearPredictedWater() {
+    predictedWaterLayer.clearLayers();
+    predictedWaterVisible = false;
+}
+
+function buildPredictedFloodZones() {
+    if (!predictionData || !Array.isArray(predictionData.features)) {
+        return [];
+    }
+
+    const zones = [];
+
+    for (const feature of predictionData.features) {
+        if (!feature?.geometry) continue;
+
+        const geometryType = feature.geometry.type;
+        if (geometryType !== "Polygon" && geometryType !== "MultiPolygon") {
+            continue;
+        }
+
+        const props = feature.properties || {};
+        const risk = getPredictionRisk(props);
+        const floodLevel = predictedRiskToFloodLevel(risk);
+
+        // ต่ำกว่า 25% ไม่เพิ่มเป็นน้ำท่วม
+        if (!floodLevel) continue;
+
+        const tempLayer = L.geoJSON(feature);
+        const bounds = tempLayer.getBounds();
+
+        if (!bounds || !bounds.isValid()) continue;
+
+        const center = bounds.getCenter();
+        const northEast = bounds.getNorthEast();
+        const southWest = bounds.getSouthWest();
+
+        const radiusA = center.distanceTo(northEast);
+        const radiusB = center.distanceTo(southWest);
+        const radiusMeters = Math.max(20, Math.max(radiusA, radiusB));
+
+        zones.push({
+            lat: center.lat,
+            lon: center.lng,
+            radiusKm: radiusMeters / 1000.0,
+            level: floodLevel
+        });
+    }
+
+    return zones;
+}
+
+// เก็บชื่อ function เดิมไว้ เผื่อส่วนอื่นของไฟล์ยังเรียกอยู่
+function renderPredictedWater() {
+    const zones = buildPredictedFloodZones();
+    predictedWaterVisible = zones.length > 0;
+    return zones;
+}
+
+
+
+/* ============================================================
+   CLEAR AI RESULT / SIMULATED WATER
+============================================================ */
+
+async function clearAiPredictionResult() {
+    clearPredictionLayer();
+    clearPredictedWater();
+    predictionData = null;
+
+    // ล้าง AI layer จาก road graph ด้วย แต่ไม่แตะ Manual Flood Zone
+    if (appState?.loaded) {
+        try {
+            const state = await postJson(API.CLEAR_AI_RISK);
+            if (state?.ok) {
+                appState = state;
+                renderState(state);
+            }
+        } catch (error) {
+            console.error("Clear AI road risk error:", error);
+        }
+    }
+
+    if (predictionStatus) {
+        setDynamicText(predictionStatus, "notAnalyzed");
+    }
+
+    if (clearPredictionBtn) {
+        clearPredictionBtn.disabled = true;
+    }
+
+    showToast(t("aiCleared"), "success");
+}
+
+if (clearPredictionBtn) {
+    clearPredictionBtn.addEventListener(
+        "click",
+        clearAiPredictionResult
+    );
+}
+
+
+/* ============================================================
+   FLOOD PREVIEW
+============================================================ */
+
+function renderTemporaryFloodPreview() {
+
+    temporaryLayer.clearLayers();
+
+
+    if (
+        !selectedFloodLatLng
+    ) {
+
+        return;
+    }
+
+
+    const style =
+        getFloodZoneStyle(
+            floodLevel.value
+        );
+
+
+    L.circle(
+        selectedFloodLatLng,
+        {
+            radius:
+                Number(
+                    floodRadius.value
+                )
+                *
+                1000,
+
+            color:
+            style.color,
+
+            fillColor:
+            style.color,
+
+            fillOpacity:
+                0.08,
+
+            dashArray:
+                "6 6"
+        }
+    )
+        .addTo(
+            temporaryLayer
+        );
+
+}
+
+
+floodRadius.addEventListener(
+    "input",
+    renderTemporaryFloodPreview
+);
+
+
+floodLevel.addEventListener(
+    "change",
+    renderTemporaryFloodPreview
+);
+
+
+
+/* ============================================================
+   RESTORE STATE
+============================================================ */
+
+function restoreSelectedNodes(
+    state
+) {
+
+    if (
+        !Array.isArray(
+            state.nodes
+        )
+    ) {
+
+        return;
+    }
+
+
+    if (
+        state.depotId != null
+    ) {
+
+        selectedStartNode =
+            state.nodes.find(
+                n =>
+                    String(n.id)
+                    ===
+                    String(state.depotId)
+            )
+            ||
+            null;
+
+    }
+
+
+    let targetId =
+        state.campId;
+
+
+    if (
+        targetId == null &&
+        state.rescuePointIds?.length
+    ) {
+
+        targetId =
+            state.rescuePointIds[
+            state.rescuePointIds.length - 1
+                ];
+
+    }
+
+
+    if (
+        targetId != null
+    ) {
+
+        selectedTargetNode =
+            state.nodes.find(
+                n =>
+                    String(n.id)
+                    ===
+                    String(targetId)
+            )
+            ||
+            null;
+
+    }
+
+
+    startNodeText.textContent =
+        selectedStartNode
+            ? `Node ${selectedStartNode.id}`
+            : t("notSelected");
+
+
+    targetNodeText.textContent =
+        selectedTargetNode
+            ? ((state.rescueRequests?.length || 0) > 0
+                ? tf("rescueTargetCountLatest", { count: state.rescueRequests.length, node: selectedTargetNode.id })
+                : `Node ${selectedTargetNode.id}`)
+            : t("notSelected");
+
+}
+
+
+/* ============================================================
+   HELPERS
+============================================================ */
+
+function createNodeMap(
+    nodes
+) {
+
+    return new Map(
+        (nodes || [])
+            .map(
+                node => [
+                    String(node.id),
+                    node
+                ]
+            )
+    );
+}
+
+
+function findNearestNode(
+    lat,
+    lon
+) {
+
+    let best =
+        null;
+
+    let bestDistance =
+        Infinity;
+
+
+    for (
+        const node of
+    appState?.nodes || []
+        ) {
+
+        const distance =
+            haversineMeters(
+                lat,
+                lon,
+                node.lat,
+                node.lon
+            );
+
+
+        if (
+            distance <
+            bestDistance
+        ) {
+
+            bestDistance =
+                distance;
+
+            best =
+                node;
+
+        }
+
+    }
+
+
+    return best;
+}
+
+
+function haversineMeters(
+    lat1,
+    lon1,
+    lat2,
+    lon2
+) {
+
+    const R =
+        6371000;
+
+
+    const p1 =
+        lat1 * Math.PI / 180;
+
+    const p2 =
+        lat2 * Math.PI / 180;
+
+
+    const dp =
+        (lat2 - lat1)
+        *
+        Math.PI / 180;
+
+
+    const dl =
+        (lon2 - lon1)
+        *
+        Math.PI / 180;
+
+
+    const a =
+        Math.sin(dp / 2) ** 2
+        +
+        Math.cos(p1)
+        *
+        Math.cos(p2)
+        *
+        Math.sin(dl / 2) ** 2;
+
+
+    return (
+        R
+        *
+        2
+        *
+        Math.atan2(
+            Math.sqrt(a),
+            Math.sqrt(1 - a)
+        )
+    );
+}
+
+
+function makePhysicalEdgeKey(
+    a,
+    b
+) {
+
+    const x =
+        String(a);
+
+    const y =
+        String(b);
+
+
+    return (
+        x < y
+            ? `${x}|${y}`
+            : `${y}|${x}`
+    );
+}
+
+
+function getFloodRoadColor(
+    risk
+) {
+
+    if (
+        risk >= 0.85
+    ) {
+
+        return "#dc2626";
+
+    }
+
+
+    if (
+        risk >= 0.45
+    ) {
+
+        return "#f97316";
+
+    }
+
+
+    return "#38bdf8";
+}
+
+
+function getFloodZoneStyle(
+    level
+) {
+
+    switch (
+        String(level)
+            .toUpperCase()
+        ) {
+
+        case "SHALLOW":
+
+            return {
+                color:
+                    "#38bdf8"
+            };
+
+
+        case "DEEP":
+
+            return {
+                color:
+                    "#dc2626"
+            };
+
+
+        default:
+
+            return {
+                color:
+                    "#f59e0b"
+            };
+
+    }
+
+}
+
+
+function calculateRouteDistance(
+    state
+) {
+
+    const edges =
+        new Map(
+            (state.edges || [])
+                .map(
+                    edge => [
+                        String(edge.id),
+                        edge
+                    ]
+                )
+        );
+
+
+    return (
+        state.routeEdgeIds || []
+    )
+        .reduce(
+            (
+                total,
+                id
+            ) => {
+
+                const edge =
+                    edges.get(
+                        String(id)
+                    );
+
+
+                return (
+                    total
+                    +
+                    (
+                        Number(
+                            edge?.distance
+                        )
+                        ||
+                        0
+                    )
+                );
+
+            },
+            0
+        );
+}
+
+
+function formatDistance(
+    meters
+) {
+
+    if (
+        meters < 1000
+    ) {
+
+        return `${meters.toFixed(0)} m`;
+
+    }
+
+
+    return `${(meters / 1000).toFixed(2)} km`;
+}
+
+
+function fitMapToGraph(
+    state
+) {
+
+    if (
+        !state.nodes?.length
+    ) {
+
+        return;
+    }
+
+
+    const bounds =
+        L.latLngBounds(
+            state.nodes.map(
+                n => [
+                    n.lat,
+                    n.lon
+                ]
+            )
+        );
+
+
+    map.fitBounds(
+        bounds,
+        {
+            padding:
+                [
+                    30,
+                    30
+                ]
+        }
+    );
+}
+
+
+function createStartIcon() {
+
+    return L.divIcon(
+        {
+            className:
+                "",
+
+            html:
+                '<div class="loegis-marker loegis-start">A</div>',
+
+            iconSize:
+                [30, 30],
+
+            iconAnchor:
+                [15, 15]
+        }
+    );
+}
+
+
+function createTargetIcon() {
+
+    return L.divIcon(
+        {
+            className:
+                "",
+
+            html:
+                '<div class="loegis-marker loegis-target">B</div>',
+
+            iconSize:
+                [30, 30],
+
+            iconAnchor:
+                [15, 15]
+        }
+    );
+}
+
+
+function createRescueRequestIcon(people) {
+    const count = clampRescuePeople(people);
+    const label = count > 99 ? "99+" : String(count);
+    return L.divIcon({
+        className: "",
+        html: `<div class="loegis-marker loegis-target rescue-count-marker" title="${tf("rescueMarkerPeople", { count })}">${label}</div>`,
+        iconSize: [34, 34],
+        iconAnchor: [17, 17]
+    });
+}
+
+
+function updateMapLoadedStatus() {
+
+    const loaded =
+        !!appState?.loaded;
+
+
+    mapStatus.textContent =
+        loaded
+            ? t("ready")
+            : t("notLoaded");
+
+
+    mapStatus.classList.toggle(
+        "status-on",
+        loaded
+    );
+
+
+    mapStatus.classList.toggle(
+        "status-off",
+        !loaded
+    );
+
+}
+
+
+function updateRouteButton() {
+
+    if (travelMode === "rescue") {
+        findRouteBtn.disabled =
+            !appState?.loaded
+            || !selectedStartNode
+            || !(appState?.rescueRequests?.length);
+    } else {
+        findRouteBtn.disabled =
+            !appState?.loaded
+            || !selectedStartNode
+            || !selectedTargetNode;
+    }
+
+    updateRescuePlannerUI(appState);
+}
+
+
+function requireMap() {
+
+    if (
+        !appState?.loaded
+    ) {
+
+        showToast(
+            t("mapRequired"),
+            "error"
+        );
+
+        return false;
+
+    }
+
+
+    return true;
+}
+
+
+function setLoading(
+    button,
+    loading,
+    text
+) {
+
+    button.disabled =
+        loading;
+
+
+    button.textContent =
+        text;
+}
+
+
+/* ============================================================
+   TOAST
+============================================================ */
+
+let toastTimer;
+
+
+function showToast(
+    message,
+    type = ""
+) {
+
+    clearTimeout(
+        toastTimer
+    );
+
+
+    toast.textContent =
+        message;
+
+
+    toast.className =
+        "toast";
+
+
+    if (type) {
+
+        toast.classList.add(
+            type
+        );
+
+    }
+
+
+    toast.classList.remove(
+        "hidden"
+    );
+
+
+    toastTimer =
+        setTimeout(
+            () => {
+
+                toast.classList.add(
+                    "hidden"
+                );
+
+            },
+            2600
+        );
+}
+
+
+/* ============================================================
+   INITIAL
+============================================================ */
+
+async function loadInitialState() {
+
+    try {
+
+        const state =
+            await getJson(
+                API.STATE
+            );
+
+
+        if (
+            state?.loaded
+        ) {
+
+            appState =
+                state;
+
+
+            restoreSelectedNodes(
+                state
+            );
+
+
+            renderState(
+                state,
+                true
+            );
+
+        }
+
+
+        updateMapLoadedStatus();
+
+        updateRouteButton();
+
+    }
+
+    catch (error) {
+
+        updateMapLoadedStatus();
+
+    }
+
+}
+
+
+applyLanguage();
+
+updateTravelModeUI();
+
+loadInitialState();

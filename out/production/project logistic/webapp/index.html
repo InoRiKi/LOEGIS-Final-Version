@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loegis — Crisis Route Planner</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<button id="sidebarToggle" class="sidebar-toggle" type="button" data-i18n-title="openMenu" title="เปิดเมนู">☰</button>
+
+<div class="app">
+  <aside class="sidebar multi-page-sidebar">
+    <div class="sidebar-top app-shell-top">
+      <div class="brand">
+        <div class="brand-icon">L</div>
+        <div><h1>LOEGIS</h1><p>Crisis Route Planner</p></div>
+      </div>
+      <button id="languageBtn" class="language-button" type="button" data-i18n-title="changeLanguage" title="เปลี่ยนภาษา">EN</button>
+    </div>
+
+    <nav class="app-page-nav" aria-label="Primary">
+      <button id="homePageBtn" class="app-nav-btn page-active" type="button" data-page="homePage">
+        <span class="app-nav-icon">⌂</span><span data-i18n="pageHome">ภาพรวม</span>
+      </button>
+      <button id="transportModeBtn" class="app-nav-btn" type="button" data-page="routePage">
+        <span class="app-nav-icon">↗</span><span data-i18n="pageTransport">ขนส่ง</span>
+      </button>
+      <button id="rescueModeBtn" class="app-nav-btn" type="button" data-page="routePage">
+        <span class="app-nav-icon">✚</span><span data-i18n="pageRescue">กู้ภัย</span>
+      </button>
+      <button id="aiPageBtn" class="app-nav-btn" type="button" data-page="aiPage">
+        <span class="app-nav-icon">AI</span><span data-i18n="pageAI">AI น้ำท่วมซ้ำซาก</span>
+      </button>
+      <button id="fieldPageBtn" class="app-nav-btn" type="button" data-page="fieldPage">
+        <span class="app-nav-icon">⌖</span><span data-i18n="pageField">รายงานภาคสนาม</span>
+      </button>
+    </nav>
+
+    <div class="page-workspace">
+      <!-- HOME -->
+      <section id="homePage" class="app-page active-page">
+        <div class="page-heading-block">
+          <span class="page-kicker" data-i18n="pageOverviewKicker">เริ่มต้นใช้งาน</span>
+          <h2 data-i18n="pageOverviewTitle">ภาพรวมระบบ</h2>
+          <p data-i18n="pageOverviewDesc">โหลดแผนที่และตรวจสอบสถานะก่อนเริ่มวางแผนเส้นทาง</p>
+        </div>
+
+        <div class="page-card primary-card">
+          <div class="card-title-row">
+            <div><strong data-i18n="mapFile">ไฟล์แผนที่</strong><small data-i18n="mapSetupHint">โหลดเครือข่ายถนนสำหรับเริ่มใช้งาน</small></div>
+            <span id="mapStatus" class="status-badge status-off">ยังไม่โหลด</span>
+          </div>
+          <div class="input-row page-input-row">
+            <input id="mapFilePath" type="text" value="hatyai_map.graphml" placeholder="hatyai_map.graphml">
+            <button id="loadMapBtn" class="button button-primary" type="button" data-i18n="loadMap">โหลดแผนที่</button>
+          </div>
+        </div>
+
+        <div class="home-actions">
+          <button id="syncBtn" class="home-action-button" type="button">
+            <span class="home-action-icon sync-icon">↻</span>
+            <span><strong data-i18n="sync">ซิงค์สถานการณ์ปัจจุบัน</strong><small data-i18n="syncHint">ดึงสถานะล่าสุดจากระบบ</small></span>
+          </button>
+          <button id="clearAllBtn" class="home-action-button danger-action" type="button">
+            <span class="home-action-icon">⌫</span>
+            <span><strong data-i18n="clearAllSimple">เคลียร์สถานการณ์</strong><small data-i18n="clearAllHint">เริ่มการจำลองใหม่ทั้งหมด</small></span>
+          </button>
+        </div>
+
+        <div class="workflow-card">
+          <strong data-i18n="workflowTitle">ลำดับการใช้งาน</strong>
+          <div class="workflow-steps">
+            <div><span>1</span><p data-i18n="workflowStep1">โหลดแผนที่</p></div>
+            <div><span>2</span><p data-i18n="workflowStep2">เปิด AI Risk หรือเพิ่ม Field Report ถ้ามี</p></div>
+            <div><span>3</span><p data-i18n="workflowStep3">เลือกขนส่งหรือกู้ภัย แล้ววางแผนเส้นทาง</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ROUTE / RESCUE -->
+      <section id="routePage" class="app-page">
+        <div class="page-heading-block">
+          <span id="routePageKicker" class="page-kicker" data-i18n="routeSection">การหาเส้นทาง</span>
+          <h2 id="routePageTitle" data-i18n="transport">ขนส่ง</h2>
+          <p id="routePageDescription" data-i18n="transportDesc">วางแผนเส้นทางขนส่ง</p>
+        </div>
+
+        <div class="page-card">
+          <div class="page-card-title" data-i18n="selectLocation">เลือกตำแหน่งบนแผนที่</div>
+          <button id="selectStartBtn" class="location-button" type="button">
+            <div class="location-icon start">A</div>
+            <div class="location-text"><strong data-i18n="start">จุดเริ่มต้น</strong><span id="startNodeText" data-i18n="notSelected">ยังไม่ได้เลือก</span></div>
+          </button>
+          <button id="selectTargetBtn" class="location-button" type="button">
+            <div id="targetLocationIcon" class="location-icon target">B</div>
+            <div class="location-text"><strong id="targetLocationLabel" data-i18n="destination">จุดหมาย</strong><span id="targetNodeText" data-i18n="notSelected">ยังไม่ได้เลือก</span></div>
+          </button>
+          <div id="clickHint" class="click-hint" data-i18n="clickHint">เลือกจุดเริ่มต้นหรือจุดหมาย แล้วคลิกตำแหน่งบนแผนที่</div>
+        </div>
+
+        <div id="smartRoutingBox" class="page-card smart-routing-box">
+          <label for="routePreference" data-i18n="routePreference">รูปแบบการตัดสินใจ</label>
+          <select id="routePreference">
+            <option value="FASTEST" data-i18n="fastest">⚡ เร็วที่สุด</option>
+            <option value="BALANCED" selected data-i18n="balanced">⚖️ สมดุล</option>
+            <option value="SAFEST" data-i18n="safest">🛡️ ปลอดภัยที่สุด</option>
+          </select>
+          <small class="smart-routing-hint" data-i18n="routingHint">ระบบคำนวณเส้นทางจากระยะทาง เวลา และความเสี่ยงน้ำท่วม</small>
+        </div>
+
+        <div id="rescuePlannerBox" class="page-card rescue-planner-box hidden">
+          <div class="planner-title" data-i18n="multiRescue">กู้ภัยหลายจุด</div>
+          <div id="rescueQueueInfo" class="rescue-queue-summary"></div>
+          <details class="rescue-advanced">
+            <summary data-i18n="advancedSettings">ตั้งค่าขั้นสูง</summary>
+            <div class="rescue-advanced-content">
+              <div class="planner-grid">
+                <div><label for="rescueFleetSize" data-i18n="fleetSize">จำนวนรถ</label><input id="rescueFleetSize" type="number" min="1" max="50" value="1"></div>
+                <div><label for="rescueVehicleCapacity" data-i18n="vehicleCapacity">ความจุ/คัน</label><input id="rescueVehicleCapacity" type="number" min="1" max="100" value="4"></div>
+              </div>
+            </div>
+          </details>
+          <button id="clearRescueRequestsBtn" class="button button-ghost" type="button" disabled data-i18n="clearRescuePoints">ล้างจุดผู้ประสบภัย</button>
+        </div>
+
+        <button id="findRouteBtn" class="button button-route route-primary-action" type="button" disabled data-i18n="findRoute">หาเส้นทางที่ดีที่สุด</button>
+
+        <div id="routeResult" class="route-result hidden">
+          <div class="result-title" data-i18n="result">ผลการคำนวณ</div>
+          <div class="result-grid risk-result-grid">
+            <div><span data-i18n="totalDistance">ระยะทางรวม</span><strong id="routeDistance">0.00 km</strong></div>
+            <div><span data-i18n="averageRisk">ความเสี่ยงเฉลี่ย</span><strong id="routeAverageRisk">0%</strong></div>
+            <div><span data-i18n="maxRisk">ความเสี่ยงสูงสุด</span><strong id="routeMaxRisk">0%</strong></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- AI -->
+      <section id="aiPage" class="app-page">
+        <div class="page-heading-block">
+          <span class="page-kicker">AI</span>
+          <h2 data-i18n="aiPredictionTitle">AI พื้นที่น้ำท่วมซ้ำซาก</h2>
+          <p data-i18n="aiPredictionDesc">ใช้โมเดล XGBoost ใหม่จาก elevation และ slope ประเมินความเสี่ยงน้ำท่วมซ้ำซากและนำไปใช้ในการหาเส้นทาง</p>
+        </div>
+
+        <div class="page-card ai-page-card">
+          <div class="ai-hero-icon">AI</div>
+          <strong data-i18n="aiPredictionTitle">AI พื้นที่น้ำท่วมซ้ำซาก</strong>
+          <p data-i18n="aiPageHelp">วิเคราะห์ความเสี่ยงและส่งค่าความเสี่ยงเข้า Road Network โดยอัตโนมัติ</p>
+          <button id="predictFloodBtn" class="button button-ai page-main-button" type="button" data-i18n="predictFlood">🤖 วิเคราะห์ความเสี่ยงน้ำท่วม</button>
+          <button id="clearPredictionBtn" class="button button-ghost" type="button" disabled data-i18n="clearPrediction">🧹 เคลียร์ผลทำนาย</button>
+          <div id="predictionStatus" class="prediction-status prediction-status-large" data-i18n="notAnalyzed">ยังไม่ได้วิเคราะห์</div>
+        </div>
+
+        <div class="page-card">
+          <div class="page-card-title" data-i18n="riskLegendTitle">ระดับความเสี่ยง</div>
+          <div class="prediction-legend page-legend">
+            <div><span class="prediction-dot very-high"></span><span data-i18n="riskVeryHigh">สูงมาก ≥ 75%</span></div>
+            <div><span class="prediction-dot high"></span><span data-i18n="riskHigh">สูง 50–74%</span></div>
+            <div><span class="prediction-dot medium"></span><span data-i18n="riskMedium">ปานกลาง 25–49%</span></div>
+            <div><span class="prediction-dot low"></span><span data-i18n="riskLow">ต่ำ &lt; 25%</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FIELD REPORT -->
+      <section id="fieldPage" class="app-page">
+        <div class="page-heading-block">
+          <span class="page-kicker" data-i18n="fieldPageKicker">ข้อมูลภาคสนาม</span>
+          <h2 data-i18n="floodSection">รายงานภาคสนาม</h2>
+          <p data-i18n="fieldInfo">ใช้ข้อมูลภาคสนามยืนยันระดับน้ำจริงและปรับเส้นทางทับผลคาดการณ์จาก AI</p>
+        </div>
+
+        <div class="page-card">
+          <div class="control-group"><label for="fieldNote" data-i18n="fieldNote">หมายเหตุ</label><input id="fieldNote" type="text" data-i18n-placeholder="fieldNotePlaceholder" placeholder="เช่น น้ำเพิ่มเร็ว มีรถติดค้าง"></div>
+          <div class="control-group">
+            <label for="floodLevel" data-i18n="floodLevel">ระดับน้ำท่วม</label>
+            <select id="floodLevel"><option value="SHALLOW" data-i18n="shallow">น้ำตื้น</option><option value="MEDIUM" selected data-i18n="medium">น้ำปานกลาง</option><option value="DEEP" data-i18n="deep">น้ำลึก</option></select>
+          </div>
+          <div class="control-group">
+            <label for="floodRadius" data-i18n="radius">รัศมีพื้นที่น้ำท่วม</label>
+            <div class="unit-input"><input id="floodRadius" type="number" value="1" min="0.1" step="0.1"><span>km</span></div>
+          </div>
+          <button id="selectFloodBtn" class="button button-secondary" type="button" data-i18n="selectFlood">เลือกตำแหน่งน้ำท่วมบนแผนที่</button>
+          <div id="floodSelectionInfo" class="selection-info" data-i18n="notSelectedLocation">ยังไม่ได้เลือกตำแหน่ง</div>
+          <button id="addFloodBtn" class="button button-flood page-main-button" type="button" disabled data-i18n="addFlood">บันทึกรายงานภาคสนาม</button>
+          <button id="clearFloodBtn" class="button button-ghost" type="button" disabled data-i18n="clearFlood">ล้างรายงานภาคสนามทั้งหมด</button>
+        </div>
+
+        <div class="page-card">
+          <div class="page-card-title" data-i18n="waterLegendTitle">ระดับน้ำบนแผนที่</div>
+          <div class="flood-legend page-legend">
+            <div><span class="dot shallow"></span><span data-i18n="shallow">น้ำตื้น</span></div>
+            <div><span class="dot medium"></span><span data-i18n="medium">น้ำปานกลาง</span></div>
+            <div><span class="dot deep"></span><span data-i18n="deep">น้ำลึก</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </aside>
+
+  <main class="map-area">
+    <div id="map"></div>
+    <div class="map-legend">
+      <div><span class="legend-marker start"></span><span data-i18n="start">จุดเริ่มต้น</span></div>
+      <div><span class="legend-marker target"></span><span data-i18n="destination">จุดหมาย</span></div>
+      <div><span class="legend-line route"></span><span data-i18n="bestRoute">เส้นทางที่ดีที่สุด</span></div>
+      <div><span class="legend-line flooded"></span><span data-i18n="floodedRoad">ถนนน้ำท่วม</span></div>
+    </div>
+
+    <div id="rescuePointDialog" class="rescue-point-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="rescuePointDialogTitle">
+      <div class="rescue-point-card">
+        <div class="rescue-point-heading">
+          <div><strong id="rescuePointDialogTitle" data-i18n="addRescuePoint">เพิ่มจุดผู้ประสบภัย</strong><small id="rescuePointNodeText">จุดที่เลือก</small></div>
+          <button id="rescuePointCancelX" class="rescue-point-x" type="button" data-i18n-aria-label="cancel" aria-label="ยกเลิก">×</button>
+        </div>
+        <label for="rescuePointPeople" data-i18n="rescuePeopleCount">จำนวนผู้ประสบภัย</label>
+        <div class="rescue-people-input-row"><button id="rescuePeopleMinus" type="button" data-i18n-aria-label="decreasePeople">−</button><input id="rescuePointPeople" type="number" min="1" max="200" value="1" inputmode="numeric"><button id="rescuePeoplePlus" type="button" data-i18n-aria-label="increasePeople">＋</button></div>
+        <label for="rescuePointPriority" data-i18n="priority">ความเร่งด่วน</label>
+        <select id="rescuePointPriority"><option value="NORMAL" selected data-i18n="priorityNormal">ปกติ</option><option value="HIGH" data-i18n="priorityHigh">เร่งด่วน</option><option value="CRITICAL" data-i18n="priorityCritical">วิกฤต</option><option value="LOW" data-i18n="priorityLow">ต่ำ</option></select>
+        <div class="rescue-point-actions"><button id="rescuePointCancel" class="button button-ghost" type="button" data-i18n="cancel">ยกเลิก</button><button id="rescuePointConfirm" class="button button-route" type="button" data-i18n="addThisPoint">เพิ่มจุดนี้</button></div>
+      </div>
+    </div>
+
+    <button id="rescueResultToggle" class="rescue-result-toggle hidden" type="button" aria-expanded="false" data-i18n="rescueResult">ผลกู้ภัย</button>
+    <div id="rescuePlanResult" class="rescue-result-panel hidden" aria-live="polite">
+      <div class="rescue-result-header"><strong data-i18n="rescuePlan">แผนกู้ภัย</strong><button id="rescueResultClose" class="rescue-result-close" type="button" data-i18n-aria-label="closeResult" aria-label="ปิดผลลัพธ์">×</button></div>
+      <div id="rescuePlanSummary" class="rescue-result-summary"></div>
+      <div id="rescueAssignmentList" class="assignment-list compact"></div>
+    </div>
+    <div id="toast" class="toast hidden"></div>
+  </main>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "model_name": "Hat Yai Recurrent Flood XGBoost",
+  "model_type": "XGBClassifier",
+  "features": [
+    "elevation",
+    "slope"
+  ],
+  "threshold": 0.5,
+  "n_estimators": 400,
+  "spatial_output_source": "hatyai_test_predictions.csv",
+  "spatial_risk_threshold_for_display_and_routing": 0.25,
+  "prediction_rows_total": 79175,
+  "prediction_rows_risk_ge_25pct": 10383,
+  "note": "The Java application consumes precomputed spatial probabilities from the uploaded test-prediction output. The XGBoost model artifacts are bundled for provenance/reproducibility."
+}
